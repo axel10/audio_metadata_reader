@@ -21,8 +21,8 @@ class ID3v1Parser extends TagParser {
       i++;
     }
 
-    if (tagData[i] == 0) {
-      return utf8.decode(tagData.sublist(start, i));
+    if (i < end && tagData[i] == 0) {
+      return latin1.decode(tagData.sublist(start, i));
     }
 
     return latin1.decode(tagData.sublist(start, end));
@@ -36,7 +36,7 @@ class ID3v1Parser extends TagParser {
     metadata.songName = _extract(tagData, 3, 33);
     metadata.leadPerformer = _extract(tagData, 33, 63);
     metadata.album = _extract(tagData, 63, 93);
-    metadata.year = getUint32(tagData.sublist(93, 97));
+    metadata.year = int.tryParse(latin1.decode(tagData.sublist(93, 97)).trim());
     metadata.year = metadata.year == 0 ? null : metadata.year;
     metadata.comments = [
       Comment("", _extract(tagData, 97, 127)),

@@ -16,62 +16,89 @@ class ID3v3Frame {
   final String id;
   final int size;
   final Uint8List flags;
+  final int headerSize;
 
-  ID3v3Frame(this.id, this.size, this.flags);
+  ID3v3Frame(this.id, this.size, this.flags, this.headerSize);
 }
 
 ///
 /// Metadata frame defined in the ID3 tag
 ///
-String getTextFromFrame(Uint8List information) {
-  final encoding = information.first;
+int _delimiterLength(int encoding) {
+  return encoding == 1 || encoding == 2 ? 2 : 1;
+}
 
-  switch (encoding) {
-    case 0:
-      final nullCharacterPosition = information.indexOf(0, 1);
-      return latin1Decoder.convert(
-          information,
-          1,
-          (nullCharacterPosition >= 0)
-              ? nullCharacterPosition
-              : information.length);
-
-    case 1:
-      int nullCharacterPosition = -1;
-      for (int i = 1; i + 1 < information.length; i += 2) {
-        if (information[i] == 0 && information[i + 1] == 0) {
-          nullCharacterPosition = i;
-          break;
-        }
+int _findDelimiter(Uint8List bytes, int start, int encoding) {
+  if (encoding == 1 || encoding == 2) {
+    for (int i = start; i + 1 < bytes.length; i += 2) {
+      if (bytes[i] == 0 && bytes[i + 1] == 0) {
+        return i;
       }
-      return utf16Decoder.decodeUtf16Le(information.sublist(
-          1,
-          (nullCharacterPosition >= 0)
-              ? nullCharacterPosition
-              : information.length));
-
-    case 2:
-      int nullCharacterPosition = 1;
-      while (nullCharacterPosition < information.length) {
-        if (information[nullCharacterPosition] == 0) {
-          if (information[nullCharacterPosition + 1] == 0) break;
-        }
-        nullCharacterPosition++;
-      }
-      return utf16Decoder
-          .decodeUtf16Le(information.sublist(1, nullCharacterPosition));
-
-    case 3:
-      final nullCharacterPosition = information.indexOf(0, 1);
-      return utf8Decoder.convert(
-          information,
-          1,
-          (nullCharacterPosition >= 0)
-              ? nullCharacterPosition
-              : information.length);
+    }
+    return -1;
   }
 
-  return "";
+  return bytes.indexOf(0, start);
+}
+
+String _decodeUtf16Bytes(Uint8List bytes, {required bool bigEndianDefault}) {
+  if (bytes.isEmpty) {
+    return "";
+  }
+
+  if (bytes.length >= 2) {
+    if (bytes[0] == 0xFF && bytes[1] == 0xFE) {
+      return utf16Decoder.decodeUtf16Le(bytes.sublist(2));
+    }
+    if (bytes[0] == 0xFE && bytes[1] == 0xFF) {
+      return utf16Decoder.decodeUtf16Be(bytes.sublist(2));
+    }
+  }
+
+  final primary = bigEndianDefault
+      ? utf16Decoder.decodeUtf16Be(bytes)
+      : utf16Decoder.decodeUtf16Le(bytes);
+  final secondary = bigEndianDefault
+      ? utf16Decoder.decodeUtf16Le(bytes)
+      : utf16Decoder.decodeUtf16Be(bytes);
+
+  if (primary.contains('\uFFFD') && !secondary.contains('\uFFFD')) {
+    return secondary;
+  }
+
+  return primary;
+}
+
+String _decodeFrameText(Uint8List bytes, int encoding) {
+  switch (encoding) {
+    case 0:
+      return latin1Decoder.convert(bytes);
+    case 1:
+      return _decodeUtf16Bytes(bytes, bigEndianDefault: false);
+    case 2:
+      return _decodeUtf16Bytes(bytes, bigEndianDefault: true);
+    case 3:
+      return utf8Decoder.convert(bytes);
+    default:
+      return "";
+  }
+}
+
+String _decodeTextFrame(Uint8List information) {
+  if (information.isEmpty) {
+    return "";
+  }
+
+  final encoding = information.first;
+  final content = information.sublist(1);
+  final nullCharacterPosition = _findDelimiter(content, 0, encoding);
+  final end = (nullCharacterPosition >= 0) ? nullCharacterPosition : content.length;
+
+  return _decodeFrameText(content.sublist(0, end), encoding);
+}
+
+String getTextFromFrame(Uint8List information) {
+  return _decodeTextFrame(information);
 }
 
 /// Custom metadata frame
@@ -85,65 +112,17 @@ class TXXXFrame {
     int offset = 0;
     encoding = information[offset++];
 
-    final descriptionData = <int>[];
-    bool isUTF16 = encoding == 1 || encoding == 2;
+    final descriptionEnd = _findDelimiter(information, offset, encoding);
+    final descriptionBytes = information.sublist(
+      offset,
+      descriptionEnd >= 0 ? descriptionEnd : information.length,
+    );
+    offset = (descriptionEnd >= 0)
+        ? descriptionEnd + _delimiterLength(encoding)
+        : information.length;
 
-    if (isUTF16) {
-      while (!(information[offset] == 0 && information[offset + 1] == 0)) {
-        descriptionData.add(information[offset]);
-        descriptionData.add(information[offset + 1]);
-        offset += 2;
-      }
-
-      // we pass the final zeros
-      while (information[offset] == 0) {
-        offset++;
-      }
-    } else {
-      while (information[offset] != 0) {
-        descriptionData.add(information[offset++]);
-      }
-    }
-
-    int lastCharPosition = information.length - 1;
-
-    // can be 00 for utf16 or 0 for other
-    bool hasTerminalEmptyCharacter = information[lastCharPosition] == 0 &&
-        information[lastCharPosition - 1] == 0;
-
-    // we need to remove the empty character at the end
-    // it's a single or double zero
-    final length = information.length -
-        offset -
-        (hasTerminalEmptyCharacter
-            ? isUTF16
-                ? 2
-                : 1
-            : 0);
-    final rest = information.buffer.asUint8List(offset, length);
-
-    switch (encoding) {
-      case 0:
-        description = latin1Decoder.convert(descriptionData);
-
-        this.information = latin1Decoder.convert(rest);
-        break;
-      case 1:
-        description = utf16Decoder.decodeUtf16Le(descriptionData);
-
-        this.information = utf16Decoder.decodeUtf16Le(rest);
-        break;
-      case 2:
-        description = utf16Decoder.decodeUtf16Be(descriptionData);
-
-        this.information = utf16Decoder.decodeUtf16Be(rest);
-        break;
-      case 3:
-        description = utf8Decoder.convert(descriptionData);
-
-        this.information = utf8Decoder.convert(rest);
-        break;
-    }
+    description = _decodeFrameText(descriptionBytes, encoding);
+    this.information = _decodeFrameText(information.sublist(offset), encoding);
   }
 }
 
@@ -184,27 +163,39 @@ class ID3v2Parser extends TagParser {
 
     int offset = 10;
 
-    // extended header
-    // useless
-    //
-    // > The extended header contains information
-    // > that is not vital to the correct
-    // > parsing of the tag information
-    if (getBit(headerBytes[5], 6) == 1) {
-      final extendedHeaderSize = getUint32(buffer.read(4));
-      buffer.skip(extendedHeaderSize - 4);
-    }
+    if (majorVersion == 2) {
+      while (offset < size + 10) {
+        final frame = getFrame(majorVersion);
 
-    while (offset < size) {
-      final frame = getFrame(reader, majorVersion == 4);
+        if (frame == null) {
+          break;
+        }
 
-      if (frame == null) {
-        break;
+        offset = offset + frame.headerSize + frame.size;
+        processFrame(frame.id, frame.size, majorVersion);
+      }
+    } else {
+      // extended header
+      // useless
+      //
+      // > The extended header contains information
+      // > that is not vital to the correct
+      // > parsing of the tag information
+      if (getBit(headerBytes[5], 6) == 1) {
+        final extendedHeaderSize = getUint32(buffer.read(4));
+        buffer.skip(extendedHeaderSize - 4);
       }
 
-      // 10 -> frame header
-      offset = offset + 10 + frame.size;
-      processFrame(frame.id, frame.size);
+      while (offset < size) {
+        final frame = getFrame(majorVersion);
+
+        if (frame == null) {
+          break;
+        }
+
+        offset = offset + frame.headerSize + frame.size;
+        processFrame(frame.id, frame.size, majorVersion);
+      }
     }
 
     if (metadata.duration == null || metadata.duration == Duration.zero) {
@@ -350,23 +341,25 @@ class ID3v2Parser extends TagParser {
   /// Process a frame.
   ///
   /// If the frame ID is not defined in the id3vX specs, then its content is dropped.
-  void processFrame(String frameId, int size) {
+  void processFrame(String frameId, int size, int majorVersion) {
     // why do we duplicate the content in every block?
     // it's because the biggest thing to get in the cover
     // sometimes, we don't want to read so we have to read the content
     // at the very last time
 
+    final isV22 = majorVersion == 2;
+
     final handlers = switch (frameId) {
-      "APIC" => () {
+      "APIC" || "PIC" => () {
           if (fetchImage) {
             final content = buffer.read(size);
-            final picture = getPicture(content);
+            final picture = getPicture(content, isV22: isV22);
             metadata.pictures.add(picture);
           } else {
             buffer.skip(size);
           }
         },
-      "TALB" => () {
+      "TALB" || "TAL" => () {
           final content = buffer.read(size);
           metadata.album = getTextFromFrame(content);
         },
@@ -374,11 +367,11 @@ class ID3v2Parser extends TagParser {
           final content = buffer.read(size);
           metadata.bpm = getTextFromFrame(content);
         },
-      "TCOP" => () {
+      "TCOP" || "TCP" => () {
           final content = buffer.read(size);
           metadata.copyrightMessage = getTextFromFrame(content);
         },
-      "TCON" => () {
+      "TCON" || "TCO" => () {
           final content = buffer.read(size);
           metadata.contentType = getTextFromFrame(content);
           final regex = RegExp(r"(\d+).*");
@@ -397,11 +390,11 @@ class ID3v2Parser extends TagParser {
             metadata.genres.add(metadata.contentType!);
           }
         },
-      "TCOM" => () {
+      "TCOM" || "TCM" => () {
           final content = buffer.read(size);
           metadata.composer = getTextFromFrame(content);
         },
-      "TDAT" => () {
+      "TDAT" || "TDA" => () {
           final content = buffer.read(size);
           metadata.date = getTextFromFrame(content);
         },
@@ -409,7 +402,7 @@ class ID3v2Parser extends TagParser {
           final content = buffer.read(size);
           metadata.playlistDelay = getTextFromFrame(content);
         },
-      "TENC" => () {
+      "TENC" || "TEN" => () {
           final content = buffer.read(size);
           metadata.encodedBy = getTextFromFrame(content);
         },
@@ -417,31 +410,31 @@ class ID3v2Parser extends TagParser {
           final content = buffer.read(size);
           metadata.fileType = getTextFromFrame(content);
         },
-      "TIME" => () {
+      "TIME" || "TIM" => () {
           final content = buffer.read(size);
           metadata.time = getTextFromFrame(content);
         },
-      "TIT1" => () {
+      "TIT1" || "TT1" => () {
           final content = buffer.read(size);
           metadata.contentGroupDescription = getTextFromFrame(content);
         },
-      "TIT2" => () {
+      "TIT2" || "TT2" => () {
           final content = buffer.read(size);
           metadata.songName = getTextFromFrame(content);
         },
-      "TIT3" => () {
+      "TIT3" || "TT3" => () {
           final content = buffer.read(size);
           metadata.subtitle = getTextFromFrame(content);
         },
-      "TKEY" => () {
+      "TKEY" || "TKE" => () {
           final content = buffer.read(size);
           metadata.initialKey = getTextFromFrame(content);
         },
-      "TLAN" => () {
+      "TLAN" || "TLA" => () {
           final content = buffer.read(size);
           metadata.languages = getTextFromFrame(content);
         },
-      "TLEN" => () {
+      "TLEN" || "TLE" => () {
           final content = buffer.read(size);
           final time = int.tryParse(getTextFromFrame(content));
 
@@ -453,15 +446,15 @@ class ID3v2Parser extends TagParser {
             }
           }
         },
-      "TMED" => () {
+      "TMED" || "TMT" => () {
           final content = buffer.read(size);
           metadata.mediatype = getTextFromFrame(content);
         },
-      "TOAL" => () {
+      "TOAL" || "TOL" => () {
           final content = buffer.read(size);
           metadata.originalAlbum = getTextFromFrame(content);
         },
-      "TOFN" => () {
+      "TOFN" || "TOF" => () {
           final content = buffer.read(size);
           metadata.originalFilename = getTextFromFrame(content);
         },
@@ -469,19 +462,19 @@ class ID3v2Parser extends TagParser {
           final content = buffer.read(size);
           metadata.originalTextWriter = getTextFromFrame(content);
         },
-      "TOPE" => () {
+      "TOPE" || "TOR" => () {
           final content = buffer.read(size);
           metadata.originalArtist = getTextFromFrame(content);
         },
-      "TORY" => () {
+      "TORY" || "TYE" => () {
           final content = buffer.read(size);
           metadata.originalReleaseYear = _parseYear(getTextFromFrame(content));
         },
-      "TOWN" => () {
+      "TOWN" || "TWP" => () {
           final content = buffer.read(size);
-          metadata.fileOwner == getTextFromFrame(content);
+          metadata.fileOwner = getTextFromFrame(content);
         },
-      "TDRC" => () {
+      "TDRC" || "TYR" => () {
           final content = buffer.read(size);
           metadata.year = _parseYear(getTextFromFrame(content));
         },
@@ -493,23 +486,23 @@ class ID3v2Parser extends TagParser {
           final content = buffer.read(size);
           metadata.year = _parseYear(getTextFromFrame(content));
         },
-      "TPE1" => () {
+      "TPE1" || "TP1" => () {
           final content = buffer.read(size);
           metadata.leadPerformer = getTextFromFrame(content);
         },
-      "TPE2" => () {
+      "TPE2" || "TP2" => () {
           final content = buffer.read(size);
           metadata.bandOrOrchestra = getTextFromFrame(content);
         },
-      "TPE3" => () {
+      "TPE3" || "TP3" => () {
           final content = buffer.read(size);
           metadata.conductor = getTextFromFrame(content);
         },
-      "TPE4" => () {
+      "TPE4" || "TP4" => () {
           final content = buffer.read(size);
           metadata.interpreted = getTextFromFrame(content);
         },
-      "TEXT" => () {
+      "TEXT" || "TXT" => () {
           final content = buffer.read(size);
           metadata.textWriter = getTextFromFrame(content);
         },
@@ -527,11 +520,11 @@ class ID3v2Parser extends TagParser {
             metadata.discNumber = int.tryParse(value);
           }
         },
-      "TPUB" => () {
+      "TPUB" || "TPB" => () {
           final content = buffer.read(size);
           metadata.publisher = getTextFromFrame(content);
         },
-      "TRCK" => () {
+      "TRCK" || "TRK" => () {
           final content = buffer.read(size);
           final trackInfo = getTextFromFrame(content);
 
@@ -548,11 +541,11 @@ class ID3v2Parser extends TagParser {
             metadata.trackNumber = int.parse(trackInfo);
           }
         },
-      "TRSN" => () {
+      "TRSN" || "TRN" => () {
           final content = buffer.read(size);
           metadata.internetRadioStationName = getTextFromFrame(content);
         },
-      "TRSO" => () {
+      "TRSO" || "TRO" => () {
           final content = buffer.read(size);
           metadata.internetRadioStationOwner = getTextFromFrame(content);
         },
@@ -560,16 +553,16 @@ class ID3v2Parser extends TagParser {
           final content = buffer.read(size);
           metadata.size = getTextFromFrame(content);
         },
-      "TSRC" => () {
+      "TSRC" || "TRC" => () {
           final content = buffer.read(size);
           metadata.isrc = getTextFromFrame(content);
         },
-      "TXXX" => () {
+      "TXXX" || "TXX" => () {
           final content = buffer.read(size);
           final frame = TXXXFrame(content);
           metadata.customMetadata[frame.description] = frame.information;
         },
-      "USLT" => () {
+      "USLT" || "ULT" => () {
           final content = buffer.read(size);
           metadata.lyric = getUnsynchronisedLyric(content);
         },
@@ -585,69 +578,91 @@ class ID3v2Parser extends TagParser {
     handlers.call();
   }
 
-  ID3v3Frame? getFrame(RandomAccessFile reader, bool isV4) {
-    final headerBytes = buffer.read(10);
+  ID3v3Frame? getFrame(int majorVersion) {
+    final headerBytes = buffer.read(majorVersion == 2 ? 6 : 10);
 
     if (headerBytes.every((element) => element == 0)) return null;
 
     int size;
 
-    // the id3 v4 ignore the first bit of every byte from the size
-    if (isV4) {
-      size = (headerBytes[7] & 0xFF) |
-          ((headerBytes[6] & 0xFF) << 7) |
-          ((headerBytes[5] & 0xFF) << 14) |
-          ((headerBytes[4] & 0xFF) << 21);
-    } else {
-      size = headerBytes[7] +
-          (headerBytes[6] << 8) +
-          (headerBytes[5] << 16) +
-          (headerBytes[4] << 24);
-    }
+    late final Uint8List flags;
+    late final String id;
+    late final int headerSize;
 
-    final flags = headerBytes.sublist(8);
-    final id = String.fromCharCodes(headerBytes.sublist(0, 4));
+    if (majorVersion == 2) {
+      size = (headerBytes[3] << 16) | (headerBytes[4] << 8) | headerBytes[5];
+      flags = Uint8List(0);
+      id = String.fromCharCodes(headerBytes.sublist(0, 3));
+      headerSize = 6;
+    } else {
+      // the id3 v4 ignore the first bit of every byte from the size
+      if (majorVersion == 4) {
+        size = (headerBytes[7] & 0xFF) |
+            ((headerBytes[6] & 0xFF) << 7) |
+            ((headerBytes[5] & 0xFF) << 14) |
+            ((headerBytes[4] & 0xFF) << 21);
+      } else {
+        size = headerBytes[7] +
+            (headerBytes[6] << 8) +
+            (headerBytes[5] << 16) +
+            (headerBytes[4] << 24);
+      }
+
+      flags = headerBytes.sublist(8);
+      id = String.fromCharCodes(headerBytes.sublist(0, 4));
+      headerSize = 10;
+    }
 
     return ID3v3Frame(
       id,
       size,
       flags,
+      headerSize,
     );
   }
 
-  Picture getPicture(Uint8List content) {
+  Picture getPicture(Uint8List content, {bool isV22 = false}) {
     int offset = 0;
 
     final reader = ByteData.sublistView(content);
     final encoding = reader.getUint8(offset++);
+    late final String mimetype;
 
-    final mimetype = [reader.getUint8(offset++)];
+    if (isV22) {
+      final format = String.fromCharCodes(content.sublist(offset, offset + 3))
+          .toLowerCase();
+      offset += 3;
+      mimetype = switch (format) {
+        "jpg" || "jpeg" => "image/jpeg",
+        "png" => "image/png",
+        "gif" => "image/gif",
+        _ => "image/$format",
+      };
+    } else {
+      final mimetypeBytes = <int>[reader.getUint8(offset++)];
 
-    while (mimetype.last != 0) {
-      mimetype.add(reader.getUint8(offset));
-      offset++;
+      while (mimetypeBytes.last != 0) {
+        mimetypeBytes.add(reader.getUint8(offset));
+        offset++;
+      }
+      mimetypeBytes.removeLast();
+      mimetype = String.fromCharCodes(mimetypeBytes);
     }
-    mimetype.removeLast();
 
     final pictureType = reader.getUint8(offset);
 
     offset++;
 
-    final description = [reader.getInt8(offset++)];
-
-    while (description.last != 0) {
-      description.add(reader.getInt8(offset++));
-    }
-
-    if (encoding == 1 || encoding == 2) {
-      while (reader.getInt8(offset) == 0) {
-        offset++;
-      }
+    final descriptionEnd = _findDelimiter(content, offset, encoding);
+    if (descriptionEnd >= 0) {
+      offset = descriptionEnd + _delimiterLength(encoding);
+    } else {
+      offset = content.length;
     }
 
     return Picture(
       reader.buffer.asUint8List(offset),
-      String.fromCharCodes(mimetype),
+      mimetype,
       getPictureTypeEnum(pictureType),
     );
   }
@@ -661,57 +676,26 @@ class ID3v2Parser extends TagParser {
     // skip language
     offset += 3;
 
-    final description = [reader.getInt8(offset)];
-
-    while (description.last != 0) {
-      description.add(reader.getInt8(offset));
-      offset++;
-    }
-
-    if (encoding == 1 || encoding == 2) {
-      while (offset < reader.lengthInBytes && reader.getInt8(offset) == 0) {
-        offset++;
-      }
+    final descriptionEnd = _findDelimiter(content, offset, encoding);
+    if (descriptionEnd >= 0) {
+      offset = descriptionEnd + _delimiterLength(encoding);
+    } else {
+      offset = content.length;
     }
 
     final rest = reader.buffer.asUint8List(offset);
+    final textEnd = _findDelimiter(rest, 0, encoding);
+    final textBytes = rest.sublist(0, textEnd >= 0 ? textEnd : rest.length);
 
     switch (encoding) {
       case 0:
-        final nullCharacterPosition = rest.indexOf(0, 1);
-        final informationBytes = rest.sublist(
-            1, (nullCharacterPosition >= 0) ? nullCharacterPosition : null);
-        return latin1Decoder.convert(informationBytes);
+        return latin1Decoder.convert(textBytes);
       case 1:
-        if (encoding == 1 || encoding == 2) {
-          // Check if rest length is sufficient and properly handle ending
-          if (rest.length >= 2 && rest[rest.length - 1] == 0 && rest[rest.length - 2] == 0) {
-            return utf16Decoder.decodeUtf16Le(rest, 0, rest.length - 2);
-          }
-          return utf16Decoder.decodeUtf16Le(rest);
-        }
-        return utf16Decoder.decodeUtf16Le(rest);
+        return _decodeUtf16Bytes(textBytes, bigEndianDefault: false);
       case 2:
-        int nullCharacterPosition = 1;
-        bool zeroFound = false;
-        while (nullCharacterPosition < rest.length) {
-          if (rest[nullCharacterPosition] == 0) {
-            if (zeroFound) {
-              break;
-            }
-            zeroFound = true;
-          }
-          nullCharacterPosition++;
-        }
-
-        final informationBytes = rest.sublist(
-            1, (nullCharacterPosition >= 0) ? nullCharacterPosition : null);
-        return utf16Decoder.decodeUtf16Le(informationBytes);
+        return _decodeUtf16Bytes(textBytes, bigEndianDefault: true);
       case 3:
-        final nullCharacterPosition = rest.indexOf(0, 1);
-        final informationBytes = rest.sublist(
-            1, (nullCharacterPosition >= 0) ? nullCharacterPosition : null);
-        return utf8Decoder.convert(informationBytes);
+        return utf8Decoder.convert(textBytes);
     }
 
     return "";
