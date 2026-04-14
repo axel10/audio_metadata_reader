@@ -50,7 +50,22 @@ Uint8List _makeV22TextFrame(String id, int encoding, Uint8List valueBytes) {
   return frame.toBytes();
 }
 
-Uint8List _makeId3v24Tag(List<Uint8List> frames) {
+Uint8List _makeV23TextFrame(String id, int encoding, Uint8List valueBytes) {
+  final content = Uint8List.fromList([encoding, ...valueBytes]);
+  final frame = BytesBuilder();
+  frame.add(id.codeUnits);
+  frame.add([
+    (content.length >> 24) & 0xFF,
+    (content.length >> 16) & 0xFF,
+    (content.length >> 8) & 0xFF,
+    content.length & 0xFF,
+  ]);
+  frame.add([0, 0]);
+  frame.add(content);
+  return frame.toBytes();
+}
+
+Uint8List _makeId3v24Tag(List<Uint8List> frames, {int flags = 0}) {
   final frameBytes = BytesBuilder();
   for (final frame in frames) {
     frameBytes.add(frame);
@@ -59,7 +74,22 @@ Uint8List _makeId3v24Tag(List<Uint8List> frames) {
   final payload = frameBytes.toBytes();
   final tag = BytesBuilder();
   tag.add("ID3".codeUnits);
-  tag.add([4, 0, 0]);
+  tag.add([4, 0, flags]);
+  tag.add(_synchsafe(payload.length));
+  tag.add(payload);
+  return tag.toBytes();
+}
+
+Uint8List _makeId3v23Tag(List<Uint8List> frames, {int flags = 0}) {
+  final frameBytes = BytesBuilder();
+  for (final frame in frames) {
+    frameBytes.add(frame);
+  }
+
+  final payload = frameBytes.toBytes();
+  final tag = BytesBuilder();
+  tag.add("ID3".codeUnits);
+  tag.add([3, 0, flags]);
   tag.add(_synchsafe(payload.length));
   tag.add(payload);
   return tag.toBytes();
@@ -78,6 +108,10 @@ Uint8List _makeId3v22Tag(List<Uint8List> frames) {
   tag.add(_synchsafe(payload.length));
   tag.add(payload);
   return tag.toBytes();
+}
+
+Uint8List _makeTruncatedOrCorruptedFrameTag(List<Uint8List> frames) {
+  return _makeId3v24Tag(frames);
 }
 
 Uint8List _makeId3v1Tag({
@@ -130,6 +164,52 @@ void main() {
 
     expect(metadata.title, equals("Old Title"));
     expect(metadata.artist, equals("Old Artist"));
+  });
+
+  test("skips malformed frames after valid ID3 data", () {
+    final goodFrame = _makeV24TextFrame("TIT2", 0, _latin1Bytes("Stable Title"));
+    final badFrame = BytesBuilder()
+      ..add("TPE1".codeUnits)
+      ..add(_synchsafe(20))
+      ..add([0, 0])
+      ..add([0x00, 0x01, 0x02]);
+    final tagBytes = _makeId3v24Tag([goodFrame, badFrame.toBytes()]);
+    final file = createTemporaryFile("corrupted_frame.mp3", tagBytes);
+
+    final metadata = readMetadata(file, getImage: false);
+
+    expect(metadata.title, equals("Stable Title"));
+  });
+
+  test("ignores unsupported ID3 header versions", () {
+    final goodFrame = _makeV24TextFrame("TIT2", 0, _latin1Bytes("Ignored"));
+    final payload = goodFrame;
+    final tag = BytesBuilder()
+      ..add("ID3".codeUnits)
+      ..add([5, 0, 0])
+      ..add(_synchsafe(payload.length))
+      ..add(payload);
+    final file = createTemporaryFile("unsupported_version.mp3", tag.toBytes());
+
+    final metadata = readMetadata(file, getImage: false);
+
+    expect(metadata.title, isNull);
+    expect(metadata.artist, isNull);
+  });
+
+  test("decodes unsynchronized ID3v2.3 frames", () {
+    final rawContent = Uint8List.fromList([0, 0x41, 0xFF, 0x00, 0x42, 0x00]);
+    final frame = BytesBuilder()
+      ..add("TIT2".codeUnits)
+      ..add([0, 0, 0, 5])
+      ..add([0, 0])
+      ..add(rawContent);
+    final tagBytes = _makeId3v23Tag([frame.toBytes()], flags: 0x80);
+    final file = createTemporaryFile("unsync.mp3", tagBytes);
+
+    final metadata = readMetadata(file, getImage: false);
+
+    expect(metadata.title, equals("AÿB"));
   });
 
   test("decodes ID3v1 latin1 text without UTF-8 assumptions", () {
