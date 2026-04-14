@@ -16,9 +16,11 @@ import 'package:audio_metadata_reader/src/metadata/base.dart';
 /// parsing slower.
 AudioMetadata readMetadata(File track, {bool getImage = false}) {
   final reader = track.openSync();
+  var closeReader = true;
 
   try {
     if (ID3v2Parser.canUserParser(reader)) {
+      closeReader = false;
       final mp3Metadata =
           ID3v2Parser(fetchImage: getImage).parse(reader) as Mp3Metadata;
 
@@ -53,6 +55,7 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
 
       return a;
     } else if (FlacParser.canUserParser(reader)) {
+      closeReader = false;
       final vorbisMetadata =
           FlacParser(fetchImage: getImage).parse(reader) as VorbisMetadata;
 
@@ -79,6 +82,7 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
 
       return newMetadata;
     } else if (MP4Parser.canUserParser(reader)) {
+      closeReader = false;
       final mp4Metadata =
           MP4Parser(fetchImage: getImage).parse(reader) as Mp4Metadata;
 
@@ -109,6 +113,7 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
 
       return newMetadata;
     } else if (OGGParser.canUserParser(reader)) {
+      closeReader = false;
       final oggMetadata =
           OGGParser(fetchImage: getImage).parse(reader) as VorbisMetadata;
 
@@ -134,6 +139,7 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
 
       return newMetadata;
     } else if (RiffParser.canUserParser(reader)) {
+      closeReader = false;
       final riffMetadata = RiffParser().parse(reader) as RiffMetadata;
 
       final newMetadata = AudioMetadata(
@@ -159,6 +165,7 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
 
       return newMetadata;
     } else if (ID3v1Parser.canUserParser(reader)) {
+      closeReader = false;
       final mp3Metadata = ID3v1Parser().parse(reader) as Mp3Metadata;
 
       final newMetadata = AudioMetadata(
@@ -192,6 +199,15 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
   } catch (e, s) {
     Error.throwWithStackTrace(
         MetadataParserException(track: track, message: e.toString()), s);
+  } finally {
+    if (closeReader) {
+      try {
+        reader.closeSync();
+      } catch (_) {
+        // Some parsers may have already closed the file or the platform may
+        // reject a duplicate close. In either case we can safely ignore it.
+      }
+    }
   }
 
   throw NoMetadataParserException(
@@ -212,22 +228,36 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
 /// By default, it fetches the cover images
 ParserTag readAllMetadata(File track, {bool getImage = true}) {
   final reader = track.openSync();
+  var closeReader = true;
 
   try {
     if (ID3v2Parser.canUserParser(reader)) {
+      closeReader = false;
       return ID3v2Parser(fetchImage: getImage).parse(reader);
     } else if (FlacParser.canUserParser(reader)) {
+      closeReader = false;
       return FlacParser(fetchImage: getImage).parse(reader);
     } else if (MP4Parser.canUserParser(reader)) {
+      closeReader = false;
       return MP4Parser(fetchImage: getImage).parse(reader);
     } else if (OGGParser.canUserParser(reader)) {
+      closeReader = false;
       return OGGParser(fetchImage: getImage).parse(reader);
-    } else if (ID3v2Parser.isID3v1(reader)) {
+    } else if (ID3v1Parser.canUserParser(reader)) {
+      closeReader = false;
       return ID3v1Parser().parse(reader);
     }
   } catch (e, trace) {
     print(trace);
     throw MetadataParserException(track: track, message: e.toString());
+  } finally {
+    if (closeReader) {
+      try {
+        reader.closeSync();
+      } catch (_) {
+        // Ignore duplicate close attempts from parsers that already closed.
+      }
+    }
   }
 
   throw MetadataParserException(

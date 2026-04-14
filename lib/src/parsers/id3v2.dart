@@ -46,18 +46,21 @@ class _TagCursor {
   }
 
   Uint8List readAtMost(int size) {
-    final end = (position + size > bytes.length) ? bytes.length : position + size;
+    final end =
+        (position + size > bytes.length) ? bytes.length : position + size;
     final result = bytes.sublist(position, end);
     position = end;
     return result;
   }
 
   void skip(int size) {
-    position = (position + size > bytes.length) ? bytes.length : position + size;
+    position =
+        (position + size > bytes.length) ? bytes.length : position + size;
   }
 
   Uint8List peek(int size) {
-    final end = (position + size > bytes.length) ? bytes.length : position + size;
+    final end =
+        (position + size > bytes.length) ? bytes.length : position + size;
     return bytes.sublist(position, end);
   }
 }
@@ -121,7 +124,9 @@ _Id3Header? _parseHeader(Uint8List headerBytes) {
     return null;
   }
 
-  if (headerBytes[0] != 0x49 || headerBytes[1] != 0x44 || headerBytes[2] != 0x33) {
+  if (headerBytes[0] != 0x49 ||
+      headerBytes[1] != 0x44 ||
+      headerBytes[2] != 0x33) {
     return null;
   }
 
@@ -206,7 +211,8 @@ String _decodeTextFrame(Uint8List information) {
   final encoding = information.first;
   final content = information.sublist(1);
   final nullCharacterPosition = _findDelimiter(content, 0, encoding);
-  final end = (nullCharacterPosition >= 0) ? nullCharacterPosition : content.length;
+  final end =
+      (nullCharacterPosition >= 0) ? nullCharacterPosition : content.length;
 
   return _decodeFrameText(content.sublist(0, end), encoding);
 }
@@ -373,18 +379,21 @@ class ID3v2Parser extends TagParser {
 
               final durationInMicroseconds =
                   (durationInSeconds * 1000000).toInt();
-              metadata.duration = Duration(microseconds: durationInMicroseconds);
+              metadata.duration =
+                  Duration(microseconds: durationInMicroseconds);
             }
           }
         } else {
           // it's a CBR file (Constant Bit Rate)
           if (metadata.bitrate != null && metadata.bitrate! > 0) {
-            final fileSizeWithoutMetadata = reader.lengthSync() - rawTagBytes.length - 10;
+            final fileSizeWithoutMetadata =
+                reader.lengthSync() - rawTagBytes.length - 10;
             final durationInSeconds =
                 (8 * fileSizeWithoutMetadata) / metadata.bitrate!;
 
             // Convert to microseconds
-            final durationInMicroseconds = (durationInSeconds * 1000000).toInt();
+            final durationInMicroseconds =
+                (durationInSeconds * 1000000).toInt();
             metadata.duration = Duration(microseconds: durationInMicroseconds);
           }
         }
@@ -457,7 +466,8 @@ class ID3v2Parser extends TagParser {
   /// Process a frame.
   ///
   /// If the frame ID is not defined in the id3vX specs, then its content is dropped.
-  void processFrame(_TagCursor cursor, String frameId, int size, int majorVersion) {
+  void processFrame(
+      _TagCursor cursor, String frameId, int size, int majorVersion) {
     // why do we duplicate the content in every block?
     // it's because the biggest thing to get in the cover
     // sometimes, we don't want to read so we have to read the content
@@ -834,6 +844,10 @@ class ID3v2Parser extends TagParser {
   }
 
   static bool isID3v1(RandomAccessFile reader) {
+    if (reader.lengthSync() < 128) {
+      return false;
+    }
+
     reader.setPositionSync(reader.lengthSync() - 128);
 
     final headerBytes = reader.readSync(3);

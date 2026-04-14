@@ -30,84 +30,93 @@ class ID3v1Parser extends TagParser {
 
   @override
   ParserTag parse(RandomAccessFile reader) {
-    reader.setPositionSync(reader.lengthSync() - 128);
+    try {
+      if (reader.lengthSync() < 128) {
+        return metadata;
+      }
 
-    final tagData = reader.readSync(128);
-    metadata.songName = _extract(tagData, 3, 33);
-    metadata.leadPerformer = _extract(tagData, 33, 63);
-    metadata.album = _extract(tagData, 63, 93);
-    metadata.year = int.tryParse(latin1.decode(tagData.sublist(93, 97)).trim());
-    metadata.year = metadata.year == 0 ? null : metadata.year;
-    metadata.comments = [
-      Comment("", _extract(tagData, 97, 127)),
-    ];
-    metadata.genres = [""];
+      reader.setPositionSync(reader.lengthSync() - 128);
 
-    // metadata.genres =  [tagData[127]];
+      final tagData = reader.readSync(128);
+      metadata.songName = _extract(tagData, 3, 33);
+      metadata.leadPerformer = _extract(tagData, 33, 63);
+      metadata.album = _extract(tagData, 63, 93);
+      metadata.year =
+          int.tryParse(latin1.decode(tagData.sublist(93, 97)).trim());
+      metadata.year = metadata.year == 0 ? null : metadata.year;
+      metadata.comments = [
+        Comment("", _extract(tagData, 97, 127)),
+      ];
+      metadata.genres = [""];
 
-    final buffer = Buffer(randomAccessFile: reader);
-    buffer.setPositionSync(0);
-    // List<int> mp3FrameHeader = [...buffer.read(4)];
-    Uint8List mp3FrameHeader = Uint8List(4);
-    mp3FrameHeader[0] = buffer.read(1)[0];
+      // metadata.genres =  [tagData[127]];
 
-    // CHECK : may have performance issues
-    while (mp3FrameHeader.first != 0xff) {
+      final buffer = Buffer(randomAccessFile: reader);
+      buffer.setPositionSync(0);
+      // List<int> mp3FrameHeader = [...buffer.read(4)];
+      Uint8List mp3FrameHeader = Uint8List(4);
       mp3FrameHeader[0] = buffer.read(1)[0];
-    }
 
-    mp3FrameHeader[1] = buffer.read(1)[0];
-    mp3FrameHeader[2] = buffer.read(1)[0];
-    mp3FrameHeader[3] = buffer.read(1)[0];
-
-    final mpegVersion = (mp3FrameHeader[1] >> 3) & 0x3;
-    final mpegLayer = (mp3FrameHeader[1] >> 1) & 3;
-
-    final bitrateIndex = mp3FrameHeader[2] >> 4;
-    final samplerateIndex = mp3FrameHeader[2] & 12 >> 0x3;
-
-    metadata.samplerate = _getSampleRate(mpegVersion, samplerateIndex);
-
-    // arbitrary choice.  Usually the `Xing` header is located after ~30 bytes
-    // then the header size is about ~150 bytes
-    final possibleXingHeader = buffer.read(400);
-
-    int i = 0;
-    while (possibleXingHeader[i] == 0) {
-      i++;
-    }
-
-    if (possibleXingHeader[i] == 0x58 &&
-        possibleXingHeader[i + 1] == 0X69 &&
-        possibleXingHeader[i + 2] == 0x6E &&
-        possibleXingHeader[i + 3] == 0x67) {
-      // it's a VBR file (Variable Bit Rate)
-      final xingFrameFlag = possibleXingHeader[i + 7] & 0x1;
-      // final xingBytesFlag = possibleXingHeader[7] >> 1 & 0x1;
-      // final xingTOCFlag = possibleXingHeader[7] >> 2 & 0x1;
-      // final xingVBRScaleFlag = possibleXingHeader[7] >> 3 & 0x1;
-
-      if (xingFrameFlag == 1) {
-        final numberOfFrames =
-            getUint32(possibleXingHeader.sublist(i + 8, i + 12));
-        metadata.duration = Duration(
-            seconds: numberOfFrames *
-                (_getSamplePerFrame(mpegVersion, mpegLayer) ?? 0) ~/
-                metadata.samplerate!);
+      // CHECK : may have performance issues
+      while (mp3FrameHeader.first != 0xff) {
+        mp3FrameHeader[0] = buffer.read(1)[0];
       }
-    } else {
-      // it's a CBR file (Constant Bit Rate)
-      metadata.bitrate = _getBitrate(mpegVersion, mpegLayer, bitrateIndex);
 
-      if (metadata.bitrate != null) {
-        final fileSizeWithoutMetadata = reader.lengthSync() - 128;
-        metadata.duration = Duration(
-            seconds: (8 * fileSizeWithoutMetadata / metadata.bitrate!).round());
+      mp3FrameHeader[1] = buffer.read(1)[0];
+      mp3FrameHeader[2] = buffer.read(1)[0];
+      mp3FrameHeader[3] = buffer.read(1)[0];
+
+      final mpegVersion = (mp3FrameHeader[1] >> 3) & 0x3;
+      final mpegLayer = (mp3FrameHeader[1] >> 1) & 3;
+
+      final bitrateIndex = mp3FrameHeader[2] >> 4;
+      final samplerateIndex = mp3FrameHeader[2] & 12 >> 0x3;
+
+      metadata.samplerate = _getSampleRate(mpegVersion, samplerateIndex);
+
+      // arbitrary choice.  Usually the `Xing` header is located after ~30 bytes
+      // then the header size is about ~150 bytes
+      final possibleXingHeader = buffer.read(400);
+
+      int i = 0;
+      while (possibleXingHeader[i] == 0) {
+        i++;
       }
-    }
 
-    reader.closeSync();
-    return metadata;
+      if (possibleXingHeader[i] == 0x58 &&
+          possibleXingHeader[i + 1] == 0X69 &&
+          possibleXingHeader[i + 2] == 0x6E &&
+          possibleXingHeader[i + 3] == 0x67) {
+        // it's a VBR file (Variable Bit Rate)
+        final xingFrameFlag = possibleXingHeader[i + 7] & 0x1;
+        // final xingBytesFlag = possibleXingHeader[7] >> 1 & 0x1;
+        // final xingTOCFlag = possibleXingHeader[7] >> 2 & 0x1;
+        // final xingVBRScaleFlag = possibleXingHeader[7] >> 3 & 0x1;
+
+        if (xingFrameFlag == 1) {
+          final numberOfFrames =
+              getUint32(possibleXingHeader.sublist(i + 8, i + 12));
+          metadata.duration = Duration(
+              seconds: numberOfFrames *
+                  (_getSamplePerFrame(mpegVersion, mpegLayer) ?? 0) ~/
+                  metadata.samplerate!);
+        }
+      } else {
+        // it's a CBR file (Constant Bit Rate)
+        metadata.bitrate = _getBitrate(mpegVersion, mpegLayer, bitrateIndex);
+
+        if (metadata.bitrate != null) {
+          final fileSizeWithoutMetadata = reader.lengthSync() - 128;
+          metadata.duration = Duration(
+              seconds:
+                  (8 * fileSizeWithoutMetadata / metadata.bitrate!).round());
+        }
+      }
+
+      return metadata;
+    } finally {
+      reader.closeSync();
+    }
   }
 
   /// To detect if this file can be parsed with this parser,

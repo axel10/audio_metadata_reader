@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:audio_metadata_reader/audio_metadata_reader.dart';
@@ -167,7 +168,8 @@ void main() {
   });
 
   test("skips malformed frames after valid ID3 data", () {
-    final goodFrame = _makeV24TextFrame("TIT2", 0, _latin1Bytes("Stable Title"));
+    final goodFrame =
+        _makeV24TextFrame("TIT2", 0, _latin1Bytes("Stable Title"));
     final badFrame = BytesBuilder()
       ..add("TPE1".codeUnits)
       ..add(_synchsafe(20))
@@ -213,13 +215,15 @@ void main() {
   });
 
   test("keeps parsing after a malformed frame body", () {
-    final titleFrame = _makeV24TextFrame("TIT2", 0, _latin1Bytes("First Title"));
+    final titleFrame =
+        _makeV24TextFrame("TIT2", 0, _latin1Bytes("First Title"));
     final badApic = BytesBuilder()
       ..add("APIC".codeUnits)
       ..add(_synchsafe(4))
       ..add([0, 0])
       ..add([0, 0x69, 0x6D, 0x67]);
-    final artistFrame = _makeV24TextFrame("TPE1", 0, _latin1Bytes("Second Artist"));
+    final artistFrame =
+        _makeV24TextFrame("TPE1", 0, _latin1Bytes("Second Artist"));
     final tagBytes = _makeId3v24Tag([
       titleFrame,
       badApic.toBytes(),
@@ -253,5 +257,22 @@ void main() {
     expect(metadata.artist, equals("Beyoncé"));
     expect(metadata.album, equals("Résumé"));
     expect(metadata.year, equals(DateTime(1999)));
+  });
+
+  test("handles short files without leaving open handles", () {
+    final file = createTemporaryFile(
+      "short.mp3",
+      Uint8List.fromList([0x00, 0x01, 0x02, 0x03]),
+    );
+    addTearDown(() {
+      if (file.existsSync()) {
+        file.deleteSync();
+      }
+    });
+
+    expect(
+      () => readAllMetadata(file, getImage: false),
+      throwsA(isA<MetadataParserException>()),
+    );
   });
 }
