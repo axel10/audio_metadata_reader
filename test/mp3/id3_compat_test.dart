@@ -191,10 +191,10 @@ void main() {
       ..add(payload);
     final file = createTemporaryFile("unsupported_version.mp3", tag.toBytes());
 
-    final metadata = readMetadata(file, getImage: false);
-
-    expect(metadata.title, isNull);
-    expect(metadata.artist, isNull);
+    expect(
+      () => readMetadata(file, getImage: false),
+      throwsA(isA<NoMetadataParserException>()),
+    );
   });
 
   test("decodes unsynchronized ID3v2.3 frames", () {
@@ -210,6 +210,27 @@ void main() {
     final metadata = readMetadata(file, getImage: false);
 
     expect(metadata.title, equals("AÿB"));
+  });
+
+  test("keeps parsing after a malformed frame body", () {
+    final titleFrame = _makeV24TextFrame("TIT2", 0, _latin1Bytes("First Title"));
+    final badApic = BytesBuilder()
+      ..add("APIC".codeUnits)
+      ..add(_synchsafe(4))
+      ..add([0, 0])
+      ..add([0, 0x69, 0x6D, 0x67]);
+    final artistFrame = _makeV24TextFrame("TPE1", 0, _latin1Bytes("Second Artist"));
+    final tagBytes = _makeId3v24Tag([
+      titleFrame,
+      badApic.toBytes(),
+      artistFrame,
+    ]);
+    final file = createTemporaryFile("malformed_body.mp3", tagBytes);
+
+    final metadata = readMetadata(file, getImage: false);
+
+    expect(metadata.title, equals("First Title"));
+    expect(metadata.artist, equals("Second Artist"));
   });
 
   test("decodes ID3v1 latin1 text without UTF-8 assumptions", () {

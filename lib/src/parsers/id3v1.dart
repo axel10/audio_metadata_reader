@@ -114,6 +114,10 @@ class ID3v1Parser extends TagParser {
   /// We have to check the 128 last bytes
   /// And if the first 3 are "TAG", it's ID3v1
   static bool canUserParser(RandomAccessFile reader) {
+    if (reader.lengthSync() < 128) {
+      return false;
+    }
+
     reader.setPositionSync(reader.lengthSync() - 128);
 
     final headerBytes = reader.readSync(3);

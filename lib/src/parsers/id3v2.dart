@@ -295,6 +295,7 @@ class ID3v2Parser extends TagParser {
       }
 
       while (!cursor.isEof) {
+        final frameStart = cursor.position;
         final frame = getFrame(cursor, header.majorVersion);
 
         if (frame == null) {
@@ -308,8 +309,9 @@ class ID3v2Parser extends TagParser {
         try {
           processFrame(cursor, frame.id, frame.size, header.majorVersion);
         } catch (_) {
-          // The frame has already been consumed in most failure cases, so move
-          // on and keep the rest of the tag readable.
+          cursor.position = (frameStart + frame.size > cursor.bytes.length)
+              ? cursor.bytes.length
+              : frameStart + frame.size;
         }
       }
 
@@ -824,11 +826,11 @@ class ID3v2Parser extends TagParser {
   /// must be equal to `ID3`
   ///
   static bool canUserParser(RandomAccessFile reader) {
+    final initialPosition = reader.positionSync();
     reader.setPositionSync(0);
-    final headerBytes = reader.readSync(3);
-    final tagIdentity = String.fromCharCodes(headerBytes);
-
-    return tagIdentity == "ID3";
+    final headerBytes = reader.readSync(10);
+    reader.setPositionSync(initialPosition);
+    return _parseHeader(headerBytes) != null;
   }
 
   static bool isID3v1(RandomAccessFile reader) {
