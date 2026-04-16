@@ -37,6 +37,16 @@ void main() {
         File("test/data/cover.png").readAsBytesSync());
   });
 
+  test("Parse my_test.m4a cover art", () {
+    final track = File('./test/mp4/my_test.m4a');
+    final result = readMetadata(track, getImage: true);
+
+    expect(result.pictures, isNotEmpty);
+    expect(result.pictures.first.pictureType, PictureType.coverFront);
+    expect(result.pictures.first.mimetype, "image/jpeg");
+    expect(result.pictures.first.bytes, isNotEmpty);
+  });
+
   test("Complex date", () {
     final track = File('./test/mp4/ahah.m4a');
     final result = readMetadata(track, getImage: true);
