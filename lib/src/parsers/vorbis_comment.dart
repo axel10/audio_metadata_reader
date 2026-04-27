@@ -26,6 +26,7 @@ void parseVorbisComment(
   switch (commentName.toUpperCase()) {
     case 'METADATA_BLOCK_PICTURE':
       if (!fetchImage) {
+        metadata.hasArtwork = true;
         return;
       }
 
@@ -52,6 +53,7 @@ void parseVorbisComment(
 
       metadata.pictures
           .add(Picture(data, mime, getPictureTypeEnum(pictureType)));
+      metadata.hasArtwork = true;
 
       break;
     case 'TITLE':

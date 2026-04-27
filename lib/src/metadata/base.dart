@@ -8,7 +8,9 @@ part 'mp4_metadata.dart';
 part 'vorbis_metadata.dart';
 part 'riff_metadata.dart';
 
-sealed class ParserTag {}
+sealed class ParserTag {
+  bool hasArtwork = false;
+}
 
 enum PictureType {
   other,
@@ -181,15 +183,19 @@ extension CommonMetadataSetters on ParserTag {
     switch (this) {
       case Mp3Metadata m:
         m.pictures = pictures;
+        m.hasArtwork = pictures.isNotEmpty;
         break;
       case Mp4Metadata m:
         m.picture = pictures.firstOrNull;
+        m.hasArtwork = pictures.isNotEmpty;
         break;
       case VorbisMetadata m:
         m.pictures = pictures;
+        m.hasArtwork = pictures.isNotEmpty;
         break;
       case RiffMetadata m:
         m.pictures = pictures;
+        m.hasArtwork = pictures.isNotEmpty;
         break;
     }
   }

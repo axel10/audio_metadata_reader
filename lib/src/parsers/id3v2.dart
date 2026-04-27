@@ -481,7 +481,9 @@ class ID3v2Parser extends TagParser {
             final content = cursor.read(size);
             final picture = getPicture(content, isV22: isV22);
             metadata.pictures.add(picture);
+            metadata.hasArtwork = true;
           } else {
+            metadata.hasArtwork = true;
             cursor.skip(size);
           }
         },

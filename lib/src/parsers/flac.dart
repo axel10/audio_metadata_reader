@@ -103,6 +103,7 @@ class FlacParser extends TagParser {
         break;
       case 6:
         if (!fetchImage) {
+          metadata.hasArtwork = true;
           buffer.skip(block.length);
         } else {
           final pictureType = getUint32(buffer.read(4));
@@ -127,6 +128,7 @@ class FlacParser extends TagParser {
               getPictureTypeEnum(pictureType),
             ),
           );
+          metadata.hasArtwork = true;
         }
         break;
       default:
@@ -167,8 +169,11 @@ class FlacParser extends TagParser {
       offset += length;
 
       final equalsIndex = comment.indexOf('=');
-      final a = equalsIndex != -1 
-          ? [comment.substring(0, equalsIndex), comment.substring(equalsIndex + 1)]
+      final a = equalsIndex != -1
+          ? [
+              comment.substring(0, equalsIndex),
+              comment.substring(equalsIndex + 1)
+            ]
           : comment.split("=");
       final commentName = a[0];
       final value = a.length > 1 ? a[1] : "";

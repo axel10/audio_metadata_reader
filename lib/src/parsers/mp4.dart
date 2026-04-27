@@ -165,6 +165,7 @@ class MP4Parser extends TagParser {
       final boxName = (box.type[0] == "©") ? box.type.substring(1) : box.type;
 
       if (boxName == "covr" && !fetchImage) {
+        tags.hasArtwork = true;
         buffer.skip(box.size - 8);
         return;
       }
@@ -225,6 +226,7 @@ class MP4Parser extends TagParser {
               imageData,
               lookupMimeType("no path", headerBytes: imageData) ?? "",
               PictureType.coverFront);
+          tags.hasArtwork = true;
           break;
         case "trkn":
           final a = getUint16(data.sublist(2, 4));

@@ -84,6 +84,9 @@ class AudioMetadata {
   /// The pictures containing in the track
   late List<Picture> pictures;
 
+  /// Whether the track contains embedded artwork.
+  bool hasArtwork;
+
   /// A reference to the file that contains the metadata
   File file;
 
@@ -101,6 +104,7 @@ class AudioMetadata {
     this.lyrics,
     this.bitrate,
     this.sampleRate,
+    this.hasArtwork = false,
     required this.file,
   }) {
     genres = [];
@@ -124,6 +128,7 @@ class AudioMetadata {
         '  lyrics: $lyrics,\n'
         '  bitrate: $bitrate,\n'
         '  sampleRate: $sampleRate,\n'
+        '  hasArtwork: $hasArtwork,\n'
         '  pictures: $pictures,\n'
         '  file: $file\n'
         ')';

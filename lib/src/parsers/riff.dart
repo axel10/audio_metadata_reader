@@ -33,6 +33,8 @@ class RiffParser extends TagParser {
           Duration(microseconds: (durationSeconds * 1000000).round());
     }
 
+    metadata.hasArtwork = metadata.pictures.isNotEmpty;
+
     reader.closeSync();
 
     return metadata;

@@ -42,6 +42,7 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
         year:
             DateTime(mp3Metadata.originalReleaseYear ?? mp3Metadata.year ?? 0),
         discNumber: mp3Metadata.discNumber,
+        hasArtwork: mp3Metadata.hasArtwork || mp3Metadata.pictures.isNotEmpty,
       );
 
       a.pictures = mp3Metadata.pictures;
@@ -74,6 +75,8 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
         trackNumber: vorbisMetadata.trackNumber.firstOrNull,
         trackTotal: vorbisMetadata.trackTotal,
         year: vorbisMetadata.date.firstOrNull,
+        hasArtwork:
+            vorbisMetadata.hasArtwork || vorbisMetadata.pictures.isNotEmpty,
       );
 
       newMetadata.genres = vorbisMetadata.genres;
@@ -101,6 +104,7 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
         trackNumber: mp4Metadata.trackNumber,
         trackTotal: mp4Metadata.totalTracks,
         year: mp4Metadata.year,
+        hasArtwork: mp4Metadata.hasArtwork || mp4Metadata.picture != null,
       );
 
       if (mp4Metadata.picture != null) {
@@ -132,6 +136,7 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
         trackNumber: oggMetadata.trackNumber.firstOrNull,
         trackTotal: oggMetadata.trackTotal,
         year: oggMetadata.date.firstOrNull,
+        hasArtwork: oggMetadata.hasArtwork || oggMetadata.pictures.isNotEmpty,
       );
       newMetadata.genres = oggMetadata.genres;
       newMetadata.pictures.addAll(oggMetadata.pictures);
@@ -157,6 +162,7 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
         trackTotal: null,
         year: riffMetadata.year,
         discNumber: null,
+        hasArtwork: riffMetadata.hasArtwork || riffMetadata.pictures.isNotEmpty,
       );
 
       newMetadata.pictures = riffMetadata.pictures;
@@ -186,6 +192,7 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
         year:
             DateTime(mp3Metadata.originalReleaseYear ?? mp3Metadata.year ?? 0),
         discNumber: mp3Metadata.discNumber,
+        hasArtwork: mp3Metadata.hasArtwork || mp3Metadata.pictures.isNotEmpty,
       );
 
       newMetadata.pictures = mp3Metadata.pictures;
