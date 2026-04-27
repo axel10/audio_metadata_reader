@@ -2,7 +2,9 @@ import 'dart:io';
 
 import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 import 'package:audio_metadata_reader/src/metadata/base.dart';
+import 'package:audio_metadata_reader/src/parsers/containers/ogg.dart';
 import 'package:audio_metadata_reader/src/parsers/containers/riff.dart';
+import 'package:audio_metadata_reader/src/writers/ogg_writer.dart';
 
 /// Reads the metadata, allows modification via [updater], and writes it back.
 ///
@@ -26,6 +28,8 @@ void writeMetadata(File track, ParserTag metadata) {
     Mp4Writer().write(track, metadata as Mp4Metadata);
   } else if (FlacParser.canUserParser(reader)) {
     FlacWriter().write(track, metadata as VorbisMetadata);
+  } else if (OGGParser.canUserParser(reader)) {
+    OggWriter().write(track, metadata as VorbisMetadata);
   } else if (RiffParser.canUserParser(reader)) {
     RiffWriter().write(track, metadata as RiffMetadata);
   } else if (MP3Parser.hasID3v1Tag(reader)) {
