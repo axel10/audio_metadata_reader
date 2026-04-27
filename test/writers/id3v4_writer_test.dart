@@ -1,9 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:audio_metadata_reader/src/metadata/base.dart';
-import 'package:audio_metadata_reader/src/parsers/id3v2.dart';
-import 'package:audio_metadata_reader/src/parsers/tag_parser.dart';
-import 'package:audio_metadata_reader/src/writers/id3v4_writer.dart';
+import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 import 'package:test/test.dart';
 
 import '../test_helpers.dart';
@@ -97,6 +94,69 @@ void main() {
           expect(resultMetadata.trackNumber, equals(6));
           expect(resultMetadata.trackTotal, equals(12));
           expect(resultMetadata.year, equals(metadata.year));
+        },
+      );
+
+      test(
+        "Write UTF-8 metadata with Chinese characters",
+        () {
+          final writer = Id3v4Writer();
+
+          final file = createTemporaryFile("test.mp3", mp3FrameHeaderCBR());
+
+          final metadata = Mp3Metadata();
+          metadata.songName = "你好世界";
+          metadata.originalArtist = "周杰伦";
+
+          writer.write(file, metadata);
+
+          final resultMetadata =
+              ID3v2Parser().parse(file.openSync()) as Mp3Metadata;
+
+          expect(resultMetadata.songName, equals(metadata.songName));
+          expect(
+              resultMetadata.originalArtist, equals(metadata.originalArtist));
+        },
+      );
+
+      test(
+        "Parse TOWN frame into fileOwner",
+        () {
+          final writer = Id3v4Writer();
+          final file = createTemporaryFile("test.mp3", mp3FrameHeaderCBR());
+
+          final metadata = Mp3Metadata();
+          metadata.fileOwner = "owner@example.com";
+
+          writer.write(file, metadata);
+
+          final resultMetadata =
+              ID3v2Parser().parse(file.openSync()) as Mp3Metadata;
+
+          expect(resultMetadata.fileOwner, equals(metadata.fileOwner));
+        },
+      );
+
+      test(
+        "Update metadata should not duplicate TCON frame",
+        () {
+          final writer = Id3v4Writer();
+          final file = createTemporaryFile("test.mp3", mp3FrameHeaderCBR());
+
+          writer.write(
+            file,
+            Mp3Metadata()..genres = ["Rock"],
+          );
+
+          updateMetadata(file, (metadata) {
+            metadata.setGenres(["Jazz"]);
+          });
+
+          final resultMetadata =
+              ID3v2Parser().parse(file.openSync()) as Mp3Metadata;
+
+          expect(resultMetadata.genres, equals(["Jazz"]));
+          expect(resultMetadata.contentType, equals("Jazz"));
         },
       );
 

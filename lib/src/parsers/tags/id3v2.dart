@@ -255,11 +255,15 @@ class TXXXFrame {
 class ID3v2Parser extends TagParser {
   final Mp3Metadata metadata = Mp3Metadata();
   late final Buffer buffer;
+  final bool closeReader;
 
   static final _discRegex = RegExp(r"(\d+)/(\d+)");
   static final _trackRegex = RegExp(r"(\d+)/(\d+)");
 
-  ID3v2Parser({fetchImage = false}) : super(fetchImage: fetchImage);
+  ID3v2Parser({
+    fetchImage = false,
+    this.closeReader = true,
+  }) : super(fetchImage: fetchImage);
 
   @override
   ParserTag parse(RandomAccessFile reader) {
@@ -401,7 +405,13 @@ class ID3v2Parser extends TagParser {
 
       return metadata;
     } finally {
-      reader.closeSync();
+      if (closeReader) {
+        try {
+          reader.closeSync();
+        } catch (_) {
+          // The reader may already be closed by a container parser.
+        }
+      }
     }
   }
 

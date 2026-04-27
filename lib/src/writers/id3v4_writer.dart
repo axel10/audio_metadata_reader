@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:audio_metadata_reader/src/metadata/base.dart';
-import 'package:audio_metadata_reader/src/parsers/tag_parser.dart';
+import 'package:audio_metadata_reader/src/parsers/tags/tag_parser.dart';
 import 'package:audio_metadata_reader/src/writers/base_writer.dart';
 
 class TagHeader {
@@ -58,9 +58,6 @@ class Id3v4Writer extends BaseMetadataWriter<Mp3Metadata> {
     }
     if (metadata.composer != null) {
       _writeFrame(builder, "TCOM", metadata.composer!);
-    }
-    if (metadata.contentType != null) {
-      _writeFrame(builder, "TCON", metadata.contentType!);
     }
     if (metadata.copyrightMessage != null) {
       _writeFrame(builder, "TCOP", metadata.copyrightMessage!);
@@ -182,14 +179,16 @@ class Id3v4Writer extends BaseMetadataWriter<Mp3Metadata> {
   }
 
   void _writeFrame(BytesBuilder builder, String frameId, String data) {
+    final encodedData = utf8.encode(data);
+
     builder.add(frameId.codeUnits);
 
-    builder.add(_encodeSynchsafeInteger(data.length + 1));
+    builder.add(_encodeSynchsafeInteger(encodedData.length + 1));
     // flags
     builder.add([0, 0]);
 
     builder.addByte(0x03);
-    builder.add(utf8.encode(data));
+    builder.add(encodedData);
   }
 
   void _writeFrameWithBytes(

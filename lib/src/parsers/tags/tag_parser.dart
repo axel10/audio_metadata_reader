@@ -86,6 +86,8 @@ class AudioMetadata {
 
   /// Whether the track contains embedded artwork.
   bool hasArtwork;
+  /// Ordered chapters when available
+  late List<Chapter> chapters;
 
   /// A reference to the file that contains the metadata
   File file;
@@ -109,6 +111,7 @@ class AudioMetadata {
   }) {
     genres = [];
     pictures = [];
+    chapters = [];
   }
 
   @override
@@ -130,6 +133,7 @@ class AudioMetadata {
         '  sampleRate: $sampleRate,\n'
         '  hasArtwork: $hasArtwork,\n'
         '  pictures: $pictures,\n'
+        '  chapters: $chapters,\n'
         '  file: $file\n'
         ')';
   }

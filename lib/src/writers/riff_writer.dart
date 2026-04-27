@@ -24,12 +24,13 @@ class RiffWriter extends BaseMetadataWriter<RiffMetadata> {
     final newData = _parseChunks();
 
     builder.add("RIFF".codeUnits);
-    builder.add(intToUint32LE(newData.length));
+    // RIFF chunk size is file size - 8, i.e. 4 ("WAVE") + payload bytes.
+    builder.add(intToUint32LE(newData.length + 4));
     builder.add("WAVE".codeUnits);
     builder.add(newData);
 
     reader.closeSync();
-    File("a_new.wav").writeAsBytesSync(builder.toBytes());
+    file.writeAsBytesSync(builder.toBytes());
   }
 
   Uint8List _parseChunks() {

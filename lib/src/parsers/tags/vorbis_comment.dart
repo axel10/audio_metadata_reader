@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:audio_metadata_reader/src/metadata/base.dart';
-import 'package:audio_metadata_reader/src/parsers/tag_parser.dart';
+import 'package:audio_metadata_reader/src/parsers/tags/tag_parser.dart';
 
 void parseVorbisComment(
   List<int> bytes,
@@ -121,6 +121,9 @@ void parseVorbisComment(
       break;
     case 'COMMENT':
       metadata.comment.add(value);
+      break;
+    case 'LANGUAGE' || 'LANG':
+      metadata.language.add(value);
       break;
     case 'DIRECTOR':
       metadata.director.add(value);

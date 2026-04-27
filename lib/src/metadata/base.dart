@@ -12,6 +12,21 @@ sealed class ParserTag {
   bool hasArtwork = false;
 }
 
+class Chapter {
+  final Duration start;
+  final String title;
+
+  Chapter({
+    required this.start,
+    required this.title,
+  });
+
+  @override
+  String toString() {
+    return 'Chapter(start: $start, title: $title)';
+  }
+}
+
 enum PictureType {
   other,
   fileIcon32x32,
@@ -217,6 +232,7 @@ extension CommonMetadataSetters on ParserTag {
     }
   }
 
+  /// Has no effect on RIFF metadata (`.wav`)
   void setTrackTotal(int? trackTotal) {
     switch (this) {
       case Mp3Metadata m:
@@ -228,8 +244,7 @@ extension CommonMetadataSetters on ParserTag {
       case VorbisMetadata m:
         m.trackTotal = trackTotal;
         break;
-      case RiffMetadata m:
-        m.trackNumber = trackTotal;
+      case RiffMetadata():
         break;
     }
   }
