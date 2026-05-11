@@ -139,9 +139,16 @@ class AudioMetadata {
   }
 }
 
-abstract class TagParser {
+abstract class TagParser<T extends ParserTag> {
+  /// Whether parsers should extract embedded image data (album art, covers).
+  ///
+  /// Reading images can allocate noticeably more memory, so callers can disable
+  /// it when they only need textual or technical metadata.
   final bool fetchImage;
 
+  /// Base constructor used by concrete metadata parsers.
   TagParser({required this.fetchImage});
-  ParserTag parse(RandomAccessFile reader);
+
+  /// Parse metadata from the current position of [reader].
+  T parse(RandomAccessFile reader);
 }

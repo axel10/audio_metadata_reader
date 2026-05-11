@@ -19,10 +19,35 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
   var closeReader = true;
 
   try {
-    if (MP3Parser.canUserParser(reader)) {
+    if (ApeParser.canUserParser(reader)) {
+      final apeMetadata = ApeParser(fetchImage: getImage).parse(reader);
+
+      final newMetadata = AudioMetadata(
+        file: track,
+        album: apeMetadata.album,
+        artist: apeMetadata.artist,
+        bitrate: apeMetadata.bitrate,
+        discNumber: apeMetadata.discNumber,
+        duration: apeMetadata.duration,
+        language: apeMetadata.language.firstOrNull,
+        lyrics: apeMetadata.lyric,
+        sampleRate: apeMetadata.sampleRate,
+        title: apeMetadata.title,
+        totalDisc: apeMetadata.discTotal,
+        trackNumber: apeMetadata.trackNumber,
+        trackTotal: apeMetadata.trackTotal,
+        year: apeMetadata.date,
+        hasArtwork: apeMetadata.hasArtwork || apeMetadata.pictures.isNotEmpty,
+      );
+
+      newMetadata.genres = apeMetadata.genres;
+      newMetadata.pictures = apeMetadata.pictures;
+      newMetadata.performers.addAll(apeMetadata.performer);
+
+      return newMetadata;
+    } else if (MP3Parser.canUserParser(reader)) {
       closeReader = false;
-      final mp3Metadata =
-          MP3Parser(fetchImage: getImage).parse(reader) as Mp3Metadata;
+      final mp3Metadata = MP3Parser(fetchImage: getImage).parse(reader);
 
       final a = AudioMetadata(
         file: track,
@@ -56,9 +81,7 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
 
       return a;
     } else if (FlacParser.canUserParser(reader)) {
-      closeReader = false;
-      final vorbisMetadata =
-          FlacParser(fetchImage: getImage).parse(reader) as VorbisMetadata;
+      final vorbisMetadata = FlacParser(fetchImage: getImage).parse(reader);
 
       final newMetadata = AudioMetadata(
         file: track,
@@ -85,9 +108,7 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
 
       return newMetadata;
     } else if (MP4Parser.canUserParser(reader)) {
-      closeReader = false;
-      final mp4Metadata =
-          MP4Parser(fetchImage: getImage).parse(reader) as Mp4Metadata;
+      final mp4Metadata = MP4Parser(fetchImage: getImage).parse(reader);
 
       final newMetadata = AudioMetadata(
         file: track,
@@ -119,9 +140,7 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
 
       return newMetadata;
     } else if (OGGParser.canUserParser(reader)) {
-      closeReader = false;
-      final oggMetadata =
-          OGGParser(fetchImage: getImage).parse(reader) as VorbisMetadata;
+      final oggMetadata = OGGParser(fetchImage: getImage).parse(reader);
 
       final newMetadata = AudioMetadata(
         file: track,
@@ -147,7 +166,7 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
       return newMetadata;
     } else if (RiffParser.canUserParser(reader)) {
       closeReader = false;
-      final riffMetadata = RiffParser().parse(reader) as RiffMetadata;
+      final riffMetadata = RiffParser().parse(reader);
 
       final newMetadata = AudioMetadata(
         file: track,
@@ -170,6 +189,31 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
       newMetadata.pictures = riffMetadata.pictures;
       newMetadata.genres =
           (riffMetadata.genre != null) ? [riffMetadata.genre!] : [];
+
+      return newMetadata;
+    } else if (AiffParser.canUserParser(reader)) {
+      final aiffMetadata = AiffParser().parse(reader);
+
+      final newMetadata = AudioMetadata(
+        file: track,
+        album: aiffMetadata.album,
+        artist: aiffMetadata.artist,
+        bitrate: aiffMetadata.bitrate,
+        duration: aiffMetadata.duration,
+        language: null,
+        lyrics: null,
+        sampleRate: aiffMetadata.samplerate,
+        title: aiffMetadata.title,
+        totalDisc: null,
+        trackNumber: aiffMetadata.trackNumber,
+        trackTotal: null,
+        year: aiffMetadata.year,
+        discNumber: null,
+      );
+
+      newMetadata.pictures = aiffMetadata.pictures;
+      newMetadata.genres =
+          (aiffMetadata.genre != null) ? [aiffMetadata.genre!] : [];
 
       return newMetadata;
     }
@@ -211,21 +255,22 @@ ParserTag readAllMetadata(File track, {bool getImage = true}) {
   var closeReader = true;
 
   try {
-    if (MP3Parser.canUserParser(reader)) {
+    if (ApeParser.canUserParser(reader)) {
+      return ApeParser(fetchImage: getImage).parse(reader);
+    } else if (MP3Parser.canUserParser(reader)) {
       closeReader = false;
       return MP3Parser(fetchImage: getImage).parse(reader);
     } else if (FlacParser.canUserParser(reader)) {
-      closeReader = false;
       return FlacParser(fetchImage: getImage).parse(reader);
     } else if (MP4Parser.canUserParser(reader)) {
-      closeReader = false;
       return MP4Parser(fetchImage: getImage).parse(reader);
     } else if (OGGParser.canUserParser(reader)) {
-      closeReader = false;
       return OGGParser(fetchImage: getImage).parse(reader);
     } else if (RiffParser.canUserParser(reader)) {
       closeReader = false;
       return RiffParser(fetchImage: getImage).parse(reader);
+    } else if (AiffParser.canUserParser(reader)) {
+      return AiffParser(fetchImage: getImage).parse(reader);
     }
   } catch (e) {
     throw MetadataParserException(track: track, message: e.toString());

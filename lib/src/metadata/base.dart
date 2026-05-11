@@ -7,13 +7,19 @@ part 'mp3_metadata.dart';
 part 'mp4_metadata.dart';
 part 'vorbis_metadata.dart';
 part 'riff_metadata.dart';
+part 'ape_metadata.dart';
 
+/// Base type for every format-specific metadata model.
 sealed class ParserTag {
   bool hasArtwork = false;
 }
 
+/// A single chapter marker (for example in podcasts or audiobooks).
 class Chapter {
+  /// Timestamp where the chapter starts.
   final Duration start;
+
+  /// Human-readable chapter title.
   final String title;
 
   Chapter({
@@ -27,6 +33,7 @@ class Chapter {
   }
 }
 
+/// Kind of attached picture based on ID3/APIC-compatible semantics.
 enum PictureType {
   other,
   fileIcon32x32,
@@ -51,6 +58,7 @@ enum PictureType {
   publisherStudioLogotype,
 }
 
+/// Numeric mapping used by formats that store picture type as an integer code.
 Map<PictureType, int> pictureTypeValue = {
   PictureType.other: 0,
   PictureType.fileIcon32x32: 1,
@@ -75,6 +83,9 @@ Map<PictureType, int> pictureTypeValue = {
   PictureType.publisherStudioLogotype: 20,
 };
 
+/// Convert a numeric picture type code into [PictureType].
+///
+/// Unknown values fall back to [PictureType.other].
 PictureType getPictureTypeEnum(int value) {
   switch (value) {
     case 0:
@@ -125,7 +136,9 @@ PictureType getPictureTypeEnum(int value) {
   }
 }
 
+/// Convenience setters that normalize common metadata writes across formats.
 extension CommonMetadataSetters on ParserTag {
+  /// Update the track title.
   void setTitle(String? title) {
     switch (this) {
       case Mp3Metadata m:
@@ -140,9 +153,13 @@ extension CommonMetadataSetters on ParserTag {
       case RiffMetadata m:
         m.title = title;
         break;
+      case ApeMetadata m:
+        m.title = title;
+        break;
     }
   }
 
+  /// Update the main artist.
   void setArtist(String? artist) {
     switch (this) {
       case Mp3Metadata m:
@@ -157,9 +174,13 @@ extension CommonMetadataSetters on ParserTag {
       case RiffMetadata m:
         m.artist = artist;
         break;
+      case ApeMetadata m:
+        m.artist = artist;
+        break;
     }
   }
 
+  /// Update the album name.
   void setAlbum(String? album) {
     switch (this) {
       case Mp3Metadata m:
@@ -174,9 +195,13 @@ extension CommonMetadataSetters on ParserTag {
       case RiffMetadata m:
         m.album = album;
         break;
+      case ApeMetadata m:
+        m.album = album;
+        break;
     }
   }
 
+  /// Update the release year/date.
   void setYear(DateTime? year) {
     switch (this) {
       case Mp3Metadata m:
@@ -191,9 +216,13 @@ extension CommonMetadataSetters on ParserTag {
       case RiffMetadata m:
         m.year = year;
         break;
+      case ApeMetadata m:
+        m.date = year;
+        break;
     }
   }
 
+  /// Replace attached pictures.
   void setPictures(List<Picture> pictures) {
     switch (this) {
       case Mp3Metadata m:
@@ -212,9 +241,14 @@ extension CommonMetadataSetters on ParserTag {
         m.pictures = pictures;
         m.hasArtwork = pictures.isNotEmpty;
         break;
+      case ApeMetadata m:
+        m.pictures = pictures;
+        m.hasArtwork = pictures.isNotEmpty;
+        break;
     }
   }
 
+  /// Update the track number inside the album.
   void setTrackNumber(int? trackNumber) {
     switch (this) {
       case Mp3Metadata m:
@@ -229,10 +263,15 @@ extension CommonMetadataSetters on ParserTag {
       case RiffMetadata m:
         m.trackNumber = trackNumber;
         break;
+      case ApeMetadata m:
+        m.trackNumber = trackNumber;
+        break;
     }
   }
 
-  /// Has no effect on RIFF metadata (`.wav`)
+  /// Update the total number of tracks in the album.
+  ///
+  /// Has no effect on RIFF metadata (`.wav`).
   void setTrackTotal(int? trackTotal) {
     switch (this) {
       case Mp3Metadata m:
@@ -246,12 +285,15 @@ extension CommonMetadataSetters on ParserTag {
         break;
       case RiffMetadata():
         break;
+      case ApeMetadata m:
+        m.trackTotal = trackTotal;
+        break;
     }
   }
 
-  /// Update the lyrics.
+  /// Update lyrics text.
   ///
-  /// Has no effect on RIFF metadata (`.wav`)
+  /// Has no effect on RIFF metadata (`.wav`).
   void setLyrics(String? lyric) {
     switch (this) {
       case Mp3Metadata m:
@@ -265,9 +307,13 @@ extension CommonMetadataSetters on ParserTag {
         break;
       case RiffMetadata():
         break;
+      case ApeMetadata m:
+        m.lyric = lyric;
+        break;
     }
   }
 
+  /// Replace genres.
   void setGenres(List<String> genres) {
     switch (this) {
       case Mp3Metadata m:
@@ -282,17 +328,23 @@ extension CommonMetadataSetters on ParserTag {
       case RiffMetadata m:
         m.genre = genres.firstOrNull;
         break;
+      case ApeMetadata m:
+        m.genres = genres;
+        break;
     }
   }
 
-  /// Has no effect on RIFF metadata (`.wav`)
+  /// Update disc number and total disc count.
+  ///
+  /// Has no effect on RIFF metadata (`.wav`).
   void setCD(int? cdNumber, int? discTotal) {
     switch (this) {
       case Mp3Metadata m:
-        if (cdNumber != null && discTotal == null)
+        if (cdNumber != null && discTotal == null) {
           m.partOfSet = "$cdNumber";
-        else if (cdNumber != null && discTotal != null)
+        } else if (cdNumber != null && discTotal != null) {
           m.partOfSet = "$cdNumber/$discTotal";
+        }
         break;
       case Mp4Metadata m:
         m.discNumber = cdNumber;
@@ -303,6 +355,10 @@ extension CommonMetadataSetters on ParserTag {
         m.discTotal = discTotal;
         break;
       case RiffMetadata():
+        break;
+      case ApeMetadata m:
+        m.discNumber = cdNumber;
+        m.discTotal = discTotal;
         break;
     }
   }

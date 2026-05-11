@@ -6,8 +6,12 @@ const List<String> supportedFileExtensions = <String>[
   '.flac',
   '.mp4',
   '.m4a',
+  '.ape',
   '.ogg',
   '.opus',
   '.wav',
+  '.aif',
+  '.aiff',
+  '.aifc',
   '.mov',
 ];

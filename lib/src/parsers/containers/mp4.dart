@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:audio_metadata_reader/src/metadata/base.dart';
 import 'package:audio_metadata_reader/src/parsers/tags/tag_parser.dart';
 import 'package:audio_metadata_reader/src/utils/buffer.dart';
 import 'package:mime/mime.dart';
@@ -17,12 +16,17 @@ import 'package:audio_metadata_reader/src/utils/bit_manipulator.dart';
 ///
 /// The size is the sum of the box header size and the box data
 class BoxHeader {
+  /// Total box size in bytes (header + payload).
   int size;
+
+  /// Four-character box type.
   String type;
 
+  /// Build a box header.
   BoxHeader(this.size, this.type);
 }
 
+/// MP4 box types this parser understands and recursively explores.
 final supportedBox = [
   "moov",
   "mvhd",
@@ -68,14 +72,18 @@ final supportedBox = [
 ///
 /// Information about the bitrate and duration are stored in `mvhd`
 ///
-class MP4Parser extends TagParser {
+class MP4Parser extends TagParser<Mp4Metadata> {
+  /// Parsed MP4 metadata.
   Mp4Metadata tags = Mp4Metadata();
+
+  /// Reader helper bound to the current file.
   late final Buffer buffer;
 
-  MP4Parser({fetchImage = false}) : super(fetchImage: fetchImage);
+  /// Create an MP4 parser.
+  MP4Parser({bool fetchImage = false}) : super(fetchImage: fetchImage);
 
   @override
-  ParserTag parse(RandomAccessFile reader) {
+  Mp4Metadata parse(RandomAccessFile reader) {
     reader.setPositionSync(0);
     buffer = Buffer(randomAccessFile: reader);
 
@@ -92,8 +100,6 @@ class MP4Parser extends TagParser {
         buffer.skip(box.size - 8);
       }
     }
-
-    reader.closeSync();
 
     return tags;
   }
@@ -404,6 +410,7 @@ class MP4Parser extends TagParser {
 
   /// To detect if this parser can be used to parse this file, we need to detect
   /// the first box. It should be a `ftyp` box
+  /// Returns `true` when [reader] looks like an MP4-family file.
   static bool canUserParser(RandomAccessFile reader) {
     reader.setPositionSync(4);
 

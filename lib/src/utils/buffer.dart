@@ -129,8 +129,8 @@ class Buffer {
       _cursor += length;
     } else {
       // Calculate the actual file position we need to skip to
-      final currentPosition = randomAccessFile.positionSync() - remainingInBuffer;
-      fileCursor += length;
+      int currentPosition = randomAccessFile.positionSync() - remainingInBuffer;
+      fileCursor = currentPosition + length;
       // Skip to the new position
       randomAccessFile.setPositionSync(currentPosition + length);
       // Refill the buffer at the new position

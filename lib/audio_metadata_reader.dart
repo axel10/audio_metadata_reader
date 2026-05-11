@@ -1,3 +1,11 @@
+/// Public API for reading and writing metadata in common audio containers.
+///
+/// This library exports:
+/// - high-level helpers (`readMetadata`, `readAllMetadata`, `updateMetadata`)
+/// - format-specific parsers and writers
+/// - shared metadata models and error types
+///
+/// Use this entrypoint when you want one import that covers the package API.
 library audio_metadata_reader;
 
 export "src/parsers/tags/tag_parser.dart" show AudioMetadata, Picture;
@@ -14,6 +22,8 @@ export 'src/parsers/tags/id3v2.dart' show ID3v2Parser;
 export 'src/parsers/containers/flac.dart' show FlacParser;
 export 'src/parsers/containers/mp4.dart' show MP4Parser;
 export 'src/parsers/containers/ogg.dart' show OGGParser;
+export 'src/parsers/containers/aiff.dart' show AiffParser;
+export 'src/parsers/containers/ape.dart' show ApeParser;
 
 export 'src/writers/id3v4_writer.dart' show Id3v4Writer;
 export 'src/writers/flac_writer.dart' show FlacWriter;
@@ -28,5 +38,6 @@ export 'src/metadata/base.dart'
         Mp3Metadata,
         Mp4Metadata,
         RiffMetadata,
+        ApeMetadata,
         VorbisMetadata,
         CommonMetadataSetters;
