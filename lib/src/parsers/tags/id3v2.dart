@@ -347,7 +347,11 @@ class ID3v2Parser extends TagParser<Mp3Metadata> {
         };
 
         final bitrateIndex = mp3FrameHeader[2] >> 4;
-        final samplerateIndex = mp3FrameHeader[2] & 12 >> 0x3;
+        // Fix: Extract sampling rate index (bits 2-3 of byte 2 of the MPEG audio frame header).
+        // The previous implementation used `mp3FrameHeader[2] & 12 >> 0x3`, which is parsed in Dart
+        // as `mp3FrameHeader[2] & (12 >> 3)` due to operator precedence, resolving to `mp3FrameHeader[2] & 1`.
+        // Instead, we shift right by 2 to bring bits 2-3 to the lowest positions, then mask with 3 (binary 11).
+        final samplerateIndex = (mp3FrameHeader[2] >> 2) & 3;
 
         metadata.samplerate = _getSampleRate(mpegVersion, samplerateIndex);
         metadata.bitrate = _getBitrate(mpegVersion, mpegLayer, bitrateIndex);

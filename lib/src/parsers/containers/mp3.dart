@@ -42,15 +42,31 @@ class MP3Parser extends TagParser<Mp3Metadata> {
         return metadata;
       }
 
-      throw StateError("No ID3 tag found in this MP3 file");
+      // No ID3 tags found, but it is a raw MP3. Parse audio properties directly.
+      final metadata = Mp3Metadata();
+      _parseAudioFrames(reader, metadata, 0);
+      return metadata;
     } finally {
       reader.closeSync();
     }
   }
 
-  /// Returns true when this file has an ID3 tag that this MP3 parser can use.
+  /// Returns true when this file has an ID3 tag or has a valid MPEG frame near the start.
   static bool canUserParser(RandomAccessFile reader) {
-    return ID3v2Parser.canUserParser(reader) || hasID3v1Tag(reader);
+    if (ID3v2Parser.canUserParser(reader) || hasID3v1Tag(reader)) {
+      return true;
+    }
+
+    // Fallback: check if the file starts with a valid MPEG audio frame (raw MP3)
+    final initialPosition = reader.positionSync();
+    reader.setPositionSync(0);
+    final buffer = Buffer(randomAccessFile: reader);
+    final parser = MP3Parser();
+    final frame = parser._findFirstMp3Frame(buffer);
+    reader.setPositionSync(initialPosition);
+
+    // If a valid MPEG audio frame is found within the first 1000 bytes, we can parse it.
+    return frame != null && frame.offset < 1000;
   }
 
   /// ID3v2 tags are identified by the "ID3" marker in the first 3 bytes.
@@ -130,7 +146,11 @@ class MP3Parser extends TagParser<Mp3Metadata> {
     };
 
     final bitrateIndex = mp3FrameHeader[2] >> 4;
-    final samplerateIndex = mp3FrameHeader[2] & 12 >> 0x3;
+    // Fix: Extract sampling rate index (bits 2-3 of byte 2 of the MPEG audio frame header).
+    // The previous implementation used `mp3FrameHeader[2] & 12 >> 0x3`, which is parsed in Dart
+    // as `mp3FrameHeader[2] & (12 >> 3)` due to operator precedence, resolving to `mp3FrameHeader[2] & 1`.
+    // Instead, we shift right by 2 to bring bits 2-3 to the lowest positions, then mask with 3 (binary 11).
+    final samplerateIndex = (mp3FrameHeader[2] >> 2) & 3;
 
     metadata.samplerate = _getSampleRate(mpegVersion, samplerateIndex);
     metadata.bitrate = _getBitrate(mpegVersion, mpegLayer, bitrateIndex);

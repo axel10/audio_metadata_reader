@@ -12,7 +12,7 @@ void main() {
     expect(result.album, equals("Album"));
     expect(result.artist, equals("Artist"));
     expect(result.discNumber, equals(1));
-    expect(result.sampleRate, equals(44100));
+    expect(result.sampleRate, equals(48000));
     expect(result.title, equals("Title"));
     expect(result.trackNumber, equals(1));
     expect(result.duration!.inMilliseconds, closeTo(1130, 10));
@@ -68,5 +68,22 @@ void main() {
     expect(result.pictures.length, 0);
     expect(result.duration, isNotNull);
     expect(result.duration!.inMilliseconds, closeTo(310, 5));
+  });
+
+  test("Parse raw CBR MP3 file without ID3 tags", () {
+    final track = File("./test/mp3/raw_cbr.mp3");
+    final result = readMetadata(track, getImage: false);
+    expect(result.duration, isNotNull);
+    expect(result.duration!.inSeconds, equals(3));
+    expect(result.sampleRate, equals(44100));
+    expect(result.bitrate, equals(128000));
+  });
+
+  test("Parse raw VBR MP3 file without ID3 tags", () {
+    final track = File("./test/mp3/raw_vbr.mp3");
+    final result = readMetadata(track, getImage: false);
+    expect(result.duration, isNotNull);
+    expect(result.duration!.inSeconds, equals(3));
+    expect(result.sampleRate, equals(44100));
   });
 }

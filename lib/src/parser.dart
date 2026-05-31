@@ -45,41 +45,6 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
       newMetadata.performers.addAll(apeMetadata.performer);
 
       return newMetadata;
-    } else if (MP3Parser.canUserParser(reader)) {
-      closeReader = false;
-      final mp3Metadata = MP3Parser(fetchImage: getImage).parse(reader);
-
-      final a = AudioMetadata(
-        file: track,
-        album: mp3Metadata.album,
-        artist: mp3Metadata.bandOrOrchestra ??
-            mp3Metadata.leadPerformer ??
-            mp3Metadata.originalArtist,
-        bitrate: mp3Metadata.bitrate,
-        duration: mp3Metadata.duration,
-        language: mp3Metadata.languages,
-        lyrics: mp3Metadata.lyric,
-        sampleRate: mp3Metadata.samplerate,
-        title: mp3Metadata.songName,
-        totalDisc: mp3Metadata.totalDics,
-        trackNumber: mp3Metadata.trackNumber,
-        trackTotal: mp3Metadata.trackTotal,
-        year:
-            DateTime(mp3Metadata.originalReleaseYear ?? mp3Metadata.year ?? 0),
-        discNumber: mp3Metadata.discNumber,
-        hasArtwork: mp3Metadata.hasArtwork || mp3Metadata.pictures.isNotEmpty,
-      );
-
-      a.pictures = mp3Metadata.pictures;
-      a.genres = mp3Metadata.genres;
-
-      final guestArtistFrame = mp3Metadata.customMetadata["GUEST ARTIST"];
-
-      if (guestArtistFrame != null) {
-        a.performers.addAll(guestArtistFrame.split("/"));
-      }
-
-      return a;
     } else if (FlacParser.canUserParser(reader)) {
       final vorbisMetadata = FlacParser(fetchImage: getImage).parse(reader);
 
@@ -216,6 +181,41 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
           (aiffMetadata.genre != null) ? [aiffMetadata.genre!] : [];
 
       return newMetadata;
+    } else if (MP3Parser.canUserParser(reader)) {
+      closeReader = false;
+      final mp3Metadata = MP3Parser(fetchImage: getImage).parse(reader);
+
+      final a = AudioMetadata(
+        file: track,
+        album: mp3Metadata.album,
+        artist: mp3Metadata.bandOrOrchestra ??
+            mp3Metadata.leadPerformer ??
+            mp3Metadata.originalArtist,
+        bitrate: mp3Metadata.bitrate,
+        duration: mp3Metadata.duration,
+        language: mp3Metadata.languages,
+        lyrics: mp3Metadata.lyric,
+        sampleRate: mp3Metadata.samplerate,
+        title: mp3Metadata.songName,
+        totalDisc: mp3Metadata.totalDics,
+        trackNumber: mp3Metadata.trackNumber,
+        trackTotal: mp3Metadata.trackTotal,
+        year:
+            DateTime(mp3Metadata.originalReleaseYear ?? mp3Metadata.year ?? 0),
+        discNumber: mp3Metadata.discNumber,
+        hasArtwork: mp3Metadata.hasArtwork || mp3Metadata.pictures.isNotEmpty,
+      );
+
+      a.pictures = mp3Metadata.pictures;
+      a.genres = mp3Metadata.genres;
+
+      final guestArtistFrame = mp3Metadata.customMetadata["GUEST ARTIST"];
+
+      if (guestArtistFrame != null) {
+        a.performers.addAll(guestArtistFrame.split("/"));
+      }
+
+      return a;
     }
   } on MetadataParserException catch (e, s) {
     Error.throwWithStackTrace(
@@ -257,9 +257,6 @@ ParserTag readAllMetadata(File track, {bool getImage = true}) {
   try {
     if (ApeParser.canUserParser(reader)) {
       return ApeParser(fetchImage: getImage).parse(reader);
-    } else if (MP3Parser.canUserParser(reader)) {
-      closeReader = false;
-      return MP3Parser(fetchImage: getImage).parse(reader);
     } else if (FlacParser.canUserParser(reader)) {
       return FlacParser(fetchImage: getImage).parse(reader);
     } else if (MP4Parser.canUserParser(reader)) {
@@ -271,6 +268,9 @@ ParserTag readAllMetadata(File track, {bool getImage = true}) {
       return RiffParser(fetchImage: getImage).parse(reader);
     } else if (AiffParser.canUserParser(reader)) {
       return AiffParser(fetchImage: getImage).parse(reader);
+    } else if (MP3Parser.canUserParser(reader)) {
+      closeReader = false;
+      return MP3Parser(fetchImage: getImage).parse(reader);
     }
   } catch (e) {
     throw MetadataParserException(track: track, message: e.toString());
