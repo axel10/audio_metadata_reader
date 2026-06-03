@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 import 'package:audio_metadata_reader/src/metadata/base.dart';
 import 'package:audio_metadata_reader/src/parsers/containers/riff.dart';
+import 'package:audio_metadata_reader/src/parsers/containers/webm.dart';
 
 /// Parse the metadata of a file.
 ///
@@ -181,6 +182,32 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
           (aiffMetadata.genre != null) ? [aiffMetadata.genre!] : [];
 
       return newMetadata;
+    } else if (WebmParser.canUserParser(reader)) {
+      final webmMetadata = WebmParser(fetchImage: getImage).parse(reader);
+
+      final newMetadata = AudioMetadata(
+        file: track,
+        album: webmMetadata.album,
+        artist: webmMetadata.artist,
+        bitrate: webmMetadata.bitrate,
+        discNumber: webmMetadata.discNumber,
+        duration: webmMetadata.duration,
+        language: webmMetadata.language.firstOrNull,
+        lyrics: webmMetadata.lyric,
+        sampleRate: webmMetadata.sampleRate,
+        title: webmMetadata.title,
+        totalDisc: webmMetadata.discTotal,
+        trackNumber: webmMetadata.trackNumber,
+        trackTotal: webmMetadata.trackTotal,
+        year: webmMetadata.date,
+        hasArtwork: webmMetadata.hasArtwork || webmMetadata.pictures.isNotEmpty,
+      );
+
+      newMetadata.genres = webmMetadata.genres;
+      newMetadata.pictures = webmMetadata.pictures;
+      newMetadata.performers.addAll(webmMetadata.performer);
+
+      return newMetadata;
     } else if (MP3Parser.canUserParser(reader)) {
       closeReader = false;
       final mp3Metadata = MP3Parser(fetchImage: getImage).parse(reader);
@@ -268,6 +295,8 @@ ParserTag readAllMetadata(File track, {bool getImage = true}) {
       return RiffParser(fetchImage: getImage).parse(reader);
     } else if (AiffParser.canUserParser(reader)) {
       return AiffParser(fetchImage: getImage).parse(reader);
+    } else if (WebmParser.canUserParser(reader)) {
+      return WebmParser(fetchImage: getImage).parse(reader);
     } else if (MP3Parser.canUserParser(reader)) {
       closeReader = false;
       return MP3Parser(fetchImage: getImage).parse(reader);

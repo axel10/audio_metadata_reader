@@ -14,4 +14,7 @@ const List<String> supportedFileExtensions = <String>[
   '.aiff',
   '.aifc',
   '.mov',
+  '.webm',
+  '.mkv',
+  '.mka',
 ];

@@ -8,6 +8,7 @@ part 'mp4_metadata.dart';
 part 'vorbis_metadata.dart';
 part 'riff_metadata.dart';
 part 'ape_metadata.dart';
+part 'webm_metadata.dart';
 
 /// Base type for every format-specific metadata model.
 sealed class ParserTag {
@@ -156,6 +157,9 @@ extension CommonMetadataSetters on ParserTag {
       case ApeMetadata m:
         m.title = title;
         break;
+      case WebmMetadata m:
+        m.title = title;
+        break;
     }
   }
 
@@ -175,6 +179,9 @@ extension CommonMetadataSetters on ParserTag {
         m.artist = artist;
         break;
       case ApeMetadata m:
+        m.artist = artist;
+        break;
+      case WebmMetadata m:
         m.artist = artist;
         break;
     }
@@ -198,6 +205,9 @@ extension CommonMetadataSetters on ParserTag {
       case ApeMetadata m:
         m.album = album;
         break;
+      case WebmMetadata m:
+        m.album = album;
+        break;
     }
   }
 
@@ -217,6 +227,9 @@ extension CommonMetadataSetters on ParserTag {
         m.year = year;
         break;
       case ApeMetadata m:
+        m.date = year;
+        break;
+      case WebmMetadata m:
         m.date = year;
         break;
     }
@@ -245,6 +258,10 @@ extension CommonMetadataSetters on ParserTag {
         m.pictures = pictures;
         m.hasArtwork = pictures.isNotEmpty;
         break;
+      case WebmMetadata m:
+        m.pictures = pictures;
+        m.hasArtwork = pictures.isNotEmpty;
+        break;
     }
   }
 
@@ -264,6 +281,9 @@ extension CommonMetadataSetters on ParserTag {
         m.trackNumber = trackNumber;
         break;
       case ApeMetadata m:
+        m.trackNumber = trackNumber;
+        break;
+      case WebmMetadata m:
         m.trackNumber = trackNumber;
         break;
     }
@@ -288,6 +308,9 @@ extension CommonMetadataSetters on ParserTag {
       case ApeMetadata m:
         m.trackTotal = trackTotal;
         break;
+      case WebmMetadata m:
+        m.trackTotal = trackTotal;
+        break;
     }
   }
 
@@ -310,6 +333,9 @@ extension CommonMetadataSetters on ParserTag {
       case ApeMetadata m:
         m.lyric = lyric;
         break;
+      case WebmMetadata m:
+        m.lyric = lyric;
+        break;
     }
   }
 
@@ -329,6 +355,9 @@ extension CommonMetadataSetters on ParserTag {
         m.genre = genres.firstOrNull;
         break;
       case ApeMetadata m:
+        m.genres = genres;
+        break;
+      case WebmMetadata m:
         m.genres = genres;
         break;
     }
@@ -357,6 +386,10 @@ extension CommonMetadataSetters on ParserTag {
       case RiffMetadata():
         break;
       case ApeMetadata m:
+        m.discNumber = cdNumber;
+        m.discTotal = discTotal;
+        break;
+      case WebmMetadata m:
         m.discNumber = cdNumber;
         m.discTotal = discTotal;
         break;

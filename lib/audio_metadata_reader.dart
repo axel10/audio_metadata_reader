@@ -24,6 +24,7 @@ export 'src/parsers/containers/mp4.dart' show MP4Parser;
 export 'src/parsers/containers/ogg.dart' show OGGParser;
 export 'src/parsers/containers/aiff.dart' show AiffParser;
 export 'src/parsers/containers/ape.dart' show ApeParser;
+export 'src/parsers/containers/webm.dart' show WebmParser;
 
 export 'src/writers/id3v4_writer.dart' show Id3v4Writer;
 export 'src/writers/flac_writer.dart' show FlacWriter;
@@ -40,4 +41,5 @@ export 'src/metadata/base.dart'
         RiffMetadata,
         ApeMetadata,
         VorbisMetadata,
+        WebmMetadata,
         CommonMetadataSetters;
