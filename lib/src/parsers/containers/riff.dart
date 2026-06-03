@@ -228,8 +228,10 @@ class RiffParser extends TagParser<RiffMetadata> {
     }
 
     reader.setPositionSync(chunkDataOffset);
+    // Disable parseAudio (MP3 frame estimation) because this is a WAV/RIFF container,
+    // and scanning for MP3 frames is both slow and incorrect for PCM audio data.
     final id3Metadata =
-        ID3v2Parser(fetchImage: fetchImage, closeReader: false).parse(reader);
+        ID3v2Parser(fetchImage: fetchImage, closeReader: false, parseAudio: false).parse(reader);
     _embeddedId3Metadata = id3Metadata;
   }
 

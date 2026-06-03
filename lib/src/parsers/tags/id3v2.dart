@@ -257,12 +257,19 @@ class ID3v2Parser extends TagParser<Mp3Metadata> {
   late final Buffer buffer;
   final bool closeReader;
 
+  /// When true, the parser will attempt to read the audio frame header (e.g. MP3 frames)
+  /// to determine the track's duration, sample rate, and bitrate.
+  /// This should be set to false when parsing embedded ID3 tags in containers like WAV/AIFF,
+  /// as they are not MP3 files and scanning for MP3 frames would read past the EOF or get incorrect values.
+  final bool parseAudio;
+
   static final _discRegex = RegExp(r"(\d+)/(\d+)");
   static final _trackRegex = RegExp(r"(\d+)/(\d+)");
 
   ID3v2Parser({
     fetchImage = false,
     this.closeReader = false,
+    this.parseAudio = true,
   }) : super(fetchImage: fetchImage);
 
   @override
@@ -324,7 +331,10 @@ class ID3v2Parser extends TagParser<Mp3Metadata> {
         }
       }
 
-      if (metadata.duration == null || metadata.duration == Duration.zero) {
+      // Only estimate audio properties (duration, bitrate, etc.) from MP3 frames if parseAudio is true.
+      // For non-MP3 files containing an embedded ID3 chunk (like WAV/AIFF), duration/bitrate are parsed
+      // from the container chunks instead of audio frames.
+      if (parseAudio && (metadata.duration == null || metadata.duration == Duration.zero)) {
         final mp3FrameHeader = _findFirstMp3Frame(buffer);
 
         if (mp3FrameHeader == null) {
@@ -445,6 +455,10 @@ class ID3v2Parser extends TagParser<Mp3Metadata> {
           frameHeader[0] = frameHeader[1];
           frameHeader[1] = frameHeader[2];
           frameHeader[2] = frameHeader[3];
+          // Check that there are still bytes remaining to read, otherwise stop to prevent out-of-bounds error
+          if (buffer.remainingBytes == 0) {
+            break;
+          }
           frameHeader[3] = buffer.read(1)[0];
           continue;
         }
@@ -460,6 +474,10 @@ class ID3v2Parser extends TagParser<Mp3Metadata> {
           frameHeader[0] = frameHeader[1];
           frameHeader[1] = frameHeader[2];
           frameHeader[2] = frameHeader[3];
+          // Check that there are still bytes remaining to read, otherwise stop to prevent out-of-bounds error
+          if (buffer.remainingBytes == 0) {
+            break;
+          }
           frameHeader[3] = buffer.read(1)[0];
           continue;
         }
@@ -470,6 +488,10 @@ class ID3v2Parser extends TagParser<Mp3Metadata> {
       frameHeader[0] = frameHeader[1];
       frameHeader[1] = frameHeader[2];
       frameHeader[2] = frameHeader[3];
+      // Check that there are still bytes remaining to read, otherwise stop to prevent out-of-bounds error
+      if (buffer.remainingBytes == 0) {
+        break;
+      }
       frameHeader[3] = buffer.read(1)[0];
     }
 
