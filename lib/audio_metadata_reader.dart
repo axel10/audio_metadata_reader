@@ -15,6 +15,8 @@ export 'src/utils/metadata_parser_exception.dart'
     show MetadataParserException, NoMetadataParserException;
 export 'src/parser.dart' show readMetadata, readAllMetadata;
 export 'src/writer.dart' show updateMetadata, writeMetadata;
+export 'src/permissions.dart' show PickedAudioFile, AuthorizedDirectory, AudioMetadataReaderPermissions;
+
 
 export 'src/parsers/containers/mp3.dart' show MP3Parser;
 export 'src/parsers/tags/id3v1.dart' show ID3v1Parser;

@@ -1,0 +1,4 @@
+<!-- Android Manifest for audio_metadata_reader declaring its namespace/package -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  package="com.clementbeal.audio_metadata_reader">
+</manifest>

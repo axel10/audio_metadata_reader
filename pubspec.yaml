@@ -15,9 +15,24 @@ topics:
 environment:
   sdk: ">=3.0.6 <4.0.0"
 
+# Added dependency on Flutter SDK to support native MethodChannel operations for platform permission handling
 dependencies:
+  flutter:
+    sdk: flutter
   charset: ^2.0.1
   intl: ^0.20.2
   mime: ^2.0.0
 dev_dependencies:
   test: ^1.26.2
+
+# Declaring audio_metadata_reader as a Flutter plugin to enable platform-specific code (Kotlin/Swift)
+# for handling Android Scoped Storage/SAF permissions and iOS Security-Scoped folder bookmarks.
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: com.clementbeal.audio_metadata_reader
+        pluginClass: AudioMetadataReaderPlugin
+      ios:
+        pluginClass: AudioMetadataReaderPlugin
+
