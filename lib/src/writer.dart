@@ -34,8 +34,12 @@ void writeMetadata(File track, ParserTag metadata) {
       format = 'flac';
     } else if (OGGParser.canUserParser(reader)) {
       format = 'ogg';
+    } else if (AiffParser.canUserParser(reader)) {
+      format = 'aiff';
     } else if (RiffParser.canUserParser(reader)) {
       format = 'riff';
+    } else if (ApeParser.canUserParser(reader) || _hasApeHeader(reader)) {
+      format = 'ape';
     } else if (MP3Parser.hasID3v1Tag(reader)) {
       format = 'mp3_id3v1';
     }
@@ -54,7 +58,19 @@ void writeMetadata(File track, ParserTag metadata) {
     OggWriter().write(track, metadata as VorbisMetadata);
   } else if (format == 'riff') {
     RiffWriter().write(track, metadata as RiffMetadata);
+  } else if (format == 'aiff') {
+    AiffWriter().write(track, metadata as RiffMetadata);
+  } else if (format == 'ape') {
+    ApeWriter().write(track, metadata as ApeMetadata);
   } else if (format == 'mp3_id3v1') {
     ID3v1Writer().write(track, metadata as Mp3Metadata);
   }
 }
+
+bool _hasApeHeader(RandomAccessFile reader) {
+  if (reader.lengthSync() < 4) return false;
+  reader.setPositionSync(0);
+  final sig = reader.readSync(4);
+  return sig.length == 4 && String.fromCharCodes(sig) == 'MAC ';
+}
+

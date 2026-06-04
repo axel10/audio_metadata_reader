@@ -175,6 +175,7 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
         trackTotal: null,
         year: aiffMetadata.year,
         discNumber: null,
+        hasArtwork: aiffMetadata.hasArtwork || aiffMetadata.pictures.isNotEmpty,
       );
 
       newMetadata.pictures = aiffMetadata.pictures;
