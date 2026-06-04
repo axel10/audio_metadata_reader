@@ -18,28 +18,89 @@ class Mp4Writer extends BaseMetadataWriter<Mp4Metadata> {
     final reader = file.openSync();
 
     final lengthFile = reader.lengthSync();
-    final byteBuilder = BytesBuilder();
+    final tempFile = File('${file.path}.tmp');
+    final writer = tempFile.openSync(mode: FileMode.write);
 
-    while (reader.positionSync() < lengthFile) {
-      final box = _readBox(reader.readSync(8));
-      final topBoxData = reader.readSync(box.size - 8);
+    try {
+      while (reader.positionSync() < lengthFile) {
+        final startPosition = reader.positionSync();
+        final headerBytes = reader.readSync(8);
+        if (headerBytes.length < 8) {
+          break;
+        }
+        var boxSize = getUint32(headerBytes.sublist(0, 4));
+        final boxNameBytes = headerBytes.sublist(4);
+        final boxType = String.fromCharCodes(boxNameBytes);
 
-      if (box.type != "moov") {
-        byteBuilder.add(intToUint32(topBoxData.length + 8));
-        byteBuilder.add(box.type.codeUnits);
-        byteBuilder.add(topBoxData);
-      } else {
-        final data = _processBox(topBoxData);
+        var headerSize = 8;
+        var isLargeBox = false;
 
-        byteBuilder.add(intToUint32(data.length + 8));
-        byteBuilder.add(box.type.codeUnits);
-        byteBuilder.add(data);
+        if (boxSize == 1) {
+          final sizeBytes = reader.readSync(8);
+          if (sizeBytes.length < 8) {
+            break;
+          }
+          boxSize = getUint64BE(sizeBytes);
+          headerSize = 16;
+          isLargeBox = true;
+        } else if (boxSize == 0) {
+          boxSize = lengthFile - startPosition;
+        }
+
+        final payloadSize = boxSize - headerSize;
+
+        if (boxType != "moov") {
+          if (isLargeBox) {
+            writer.writeFromSync(intToUint32(1));
+            writer.writeFromSync(boxType.codeUnits);
+            writer.writeFromSync(intToUint64(boxSize));
+          } else {
+            writer.writeFromSync(intToUint32(boxSize));
+            writer.writeFromSync(boxType.codeUnits);
+          }
+          _copyBytes(reader, writer, payloadSize);
+        } else {
+          final topBoxData = reader.readSync(payloadSize);
+          final data = _processBox(topBoxData);
+
+          writer.writeFromSync(intToUint32(data.length + 8));
+          writer.writeFromSync(boxType.codeUnits);
+          writer.writeFromSync(data);
+        }
       }
+    } finally {
+      reader.closeSync();
+      writer.closeSync();
     }
 
-    reader.closeSync();
+    tempFile.renameSync(file.path);
+  }
 
-    file.writeAsBytesSync(byteBuilder.toBytes());
+  void _copyBytes(RandomAccessFile reader, RandomAccessFile writer, int length) {
+    const chunkSize = 65536; // 64 KB chunks
+    var remaining = length;
+    while (remaining > 0) {
+      final toRead = remaining < chunkSize ? remaining : chunkSize;
+      final bytes = reader.readSync(toRead);
+      if (bytes.isEmpty) {
+        throw FileSystemException("Unexpected end of file while copying box payload");
+      }
+      writer.writeFromSync(bytes);
+      remaining -= bytes.length;
+    }
+  }
+
+  Uint8List intToUint64(int value) {
+    final result = Uint8List(8);
+    result[0] = (value >> 56) & 0xFF;
+    result[1] = (value >> 48) & 0xFF;
+    result[2] = (value >> 40) & 0xFF;
+    result[3] = (value >> 32) & 0xFF;
+    result[4] = (value >> 24) & 0xFF;
+    result[5] = (value >> 16) & 0xFF;
+    result[6] = (value >> 8) & 0xFF;
+    result[7] = value & 0xFF;
+    return result;
   }
 
   Uint8List _processBox(Uint8List data) {

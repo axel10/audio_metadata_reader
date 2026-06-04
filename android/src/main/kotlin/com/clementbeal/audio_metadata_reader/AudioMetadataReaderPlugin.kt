@@ -303,7 +303,9 @@ class AudioMetadataReaderPlugin: FlutterPlugin, MethodCallHandler, ActivityAware
         }
 
         try {
-            val destUri = Uri.parse(originalPath)
+            val originalUri = Uri.parse(originalPath)
+            val destUri = resolveToMediaStoreUri(safeContext, originalUri) ?: originalUri
+            Log.d(TAG, "handleCommitPickedFile: writing to $destUri (resolved from $originalPath)")
             safeContext.contentResolver.openOutputStream(destUri, "rwt")?.use { outputStream ->
                 workingFile.inputStream().use { inputStream ->
                     inputStream.copyTo(outputStream)
