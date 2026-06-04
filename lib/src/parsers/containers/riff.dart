@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -137,6 +138,14 @@ class RiffParser extends TagParser<RiffMetadata> {
     }
   }
 
+  String _decodeString(Uint8List bytes) {
+    try {
+      return utf8.decode(bytes);
+    } catch (_) {
+      return String.fromCharCodes(bytes);
+    }
+  }
+
   /// Parse the INFO chunk for metadata
   void _parseInfoChunk(Uint8List data) {
     int offset = 0;
@@ -154,7 +163,7 @@ class RiffParser extends TagParser<RiffMetadata> {
 
       final rawSubChunk = data.sublist(offset, offset + subChunkSize);
       final subChunkData =
-          String.fromCharCodes(rawSubChunk).replaceAll('\x00', '').trim();
+          _decodeString(rawSubChunk).replaceAll('\x00', '').trim();
       offset += subChunkSize;
 
       if (subChunkSize.isOdd && offset < data.length) {

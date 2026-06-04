@@ -132,7 +132,7 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
       return newMetadata;
     } else if (RiffParser.canUserParser(reader)) {
       closeReader = false;
-      final riffMetadata = RiffParser().parse(reader);
+      final riffMetadata = RiffParser(fetchImage: getImage).parse(reader);
 
       final newMetadata = AudioMetadata(
         file: track,
@@ -158,7 +158,7 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
 
       return newMetadata;
     } else if (AiffParser.canUserParser(reader)) {
-      final aiffMetadata = AiffParser().parse(reader);
+      final aiffMetadata = AiffParser(fetchImage: getImage).parse(reader);
 
       final newMetadata = AudioMetadata(
         file: track,

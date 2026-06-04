@@ -38,11 +38,11 @@ class TagHeader {
 
 /// Writer for ID3v2.4 tags.
 class Id3v4Writer extends BaseMetadataWriter<Mp3Metadata> {
-  @override
-  void write(File file, Mp3Metadata metadata) {
-    // check if the file has an ID3 metadata
-    final size = file.lengthSync();
-
+  /// Compile the [metadata] into an ID3v2.4 tag raw byte array.
+  ///
+  /// This is used internally for MP3 writing and by `RiffWriter` to update
+  /// embedded ID3 metadata chunks inside WAV/RIFF containers.
+  Uint8List compile(Mp3Metadata metadata) {
     final builder = BytesBuilder();
 
     _writeFrames(builder, metadata);
@@ -52,12 +52,21 @@ class Id3v4Writer extends BaseMetadataWriter<Mp3Metadata> {
     _writeHeader(finalBuilder, builder.length);
     finalBuilder.add(builder.toBytes());
 
+    return finalBuilder.toBytes();
+  }
+
+  @override
+  void write(File file, Mp3Metadata metadata) {
+    // check if the file has an ID3 metadata
+    final size = file.lengthSync();
+    final bytes = compile(metadata);
+
     if (size == 0) {
-      file.writeAsBytesSync(finalBuilder.toBytes());
+      file.writeAsBytesSync(bytes);
     } else {
       final oldData = file.readAsBytesSync();
       file.writeAsBytesSync([
-        ...finalBuilder.toBytes(),
+        ...bytes,
         ...oldData,
       ]);
     }
