@@ -99,6 +99,7 @@ class FlacParser extends TagParser<VorbisMetadata> {
         _parseVorbisComment(bytes);
         break;
       case 6:
+        metadata.hasArtwork = true;
         if (!fetchImage) {
           buffer.skip(block.length);
         } else {
