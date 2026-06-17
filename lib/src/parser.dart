@@ -22,6 +22,12 @@ AudioMetadata readMetadata(File track, {bool getImage = false}) {
   try {
     if (ApeParser.canUserParser(reader)) {
       final apeMetadata = ApeParser(fetchImage: getImage).parse(reader);
+      final mp3Props = MP3Parser.parseMp3AudioProperties(reader);
+      if (mp3Props != null) {
+        apeMetadata.duration = mp3Props.duration;
+        apeMetadata.bitrate = mp3Props.bitrate;
+        apeMetadata.sampleRate = mp3Props.sampleRate;
+      }
 
       final newMetadata = AudioMetadata(
         file: track,
@@ -284,7 +290,14 @@ ParserTag readAllMetadata(File track, {bool getImage = true}) {
 
   try {
     if (ApeParser.canUserParser(reader)) {
-      return ApeParser(fetchImage: getImage).parse(reader);
+      final apeMetadata = ApeParser(fetchImage: getImage).parse(reader);
+      final mp3Props = MP3Parser.parseMp3AudioProperties(reader);
+      if (mp3Props != null) {
+        apeMetadata.duration = mp3Props.duration;
+        apeMetadata.bitrate = mp3Props.bitrate;
+        apeMetadata.sampleRate = mp3Props.sampleRate;
+      }
+      return apeMetadata;
     } else if (FlacParser.canUserParser(reader)) {
       return FlacParser(fetchImage: getImage).parse(reader);
     } else if (MP4Parser.canUserParser(reader)) {

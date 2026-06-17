@@ -95,6 +95,94 @@ class MP3Parser extends TagParser<Mp3Metadata> {
     return tagIdentity == "TAG";
   }
 
+  /// Attempts to parse MP3 audio frames from the file and returns the parsed audio properties.
+  static ({Duration? duration, int? bitrate, int? sampleRate})? parseMp3AudioProperties(RandomAccessFile reader) {
+    try {
+      final initialPosition = reader.positionSync();
+
+      int audioStartOffset = 0;
+      if (hasID3v2Tag(reader)) {
+        reader.setPositionSync(0);
+        final headerBytes = reader.readSync(10);
+        final sizeBytes = headerBytes.sublist(6);
+        final tagSize = (sizeBytes[3] & 0x7F) |
+            ((sizeBytes[2] & 0x7F) << 7) |
+            ((sizeBytes[1] & 0x7F) << 14) |
+            ((sizeBytes[0] & 0x7F) << 21);
+        audioStartOffset = 10 + tagSize;
+      }
+
+      reader.setPositionSync(audioStartOffset);
+      final buffer = Buffer(randomAccessFile: reader);
+
+      final parser = MP3Parser();
+      final frame = parser._findFirstMp3Frame(buffer);
+      if (frame == null) {
+        reader.setPositionSync(initialPosition);
+        return null;
+      }
+
+      final mp3FrameHeader = frame.header;
+      final mpegVersion = switch ((mp3FrameHeader[1] >> 3) & 0x3) {
+        0x00 => 3,
+        0x01 => -1,
+        0x02 => 2,
+        0x03 => 1,
+        _ => -1
+      };
+      final mpegLayer = switch ((mp3FrameHeader[1] >> 1) & 0x3) {
+        0 => -1,
+        1 => 3,
+        2 => 2,
+        3 => 1,
+        _ => -1,
+      };
+
+      final bitrateIndex = mp3FrameHeader[2] >> 4;
+      final samplerateIndex = (mp3FrameHeader[2] >> 2) & 3;
+
+      final sampleRate = parser._getSampleRate(mpegVersion, samplerateIndex);
+      final bitrate = parser._getBitrate(mpegVersion, mpegLayer, bitrateIndex);
+
+      Duration? duration;
+
+      final possibleXingHeader = buffer.readAtMost(1500);
+      final xingOffset = parser._findXingOffset(possibleXingHeader);
+
+      if (xingOffset != null) {
+        final xingFrameFlag = possibleXingHeader[xingOffset + 7] & 0x1;
+
+        if (xingFrameFlag == 1) {
+          final numberOfFrames = getUint32(
+              possibleXingHeader.sublist(xingOffset + 8, xingOffset + 12));
+          final samplesPerFrame = parser._getSamplePerFrame(mpegVersion, mpegLayer) ?? 0;
+
+          if (sampleRate != null && sampleRate > 0 && samplesPerFrame > 0) {
+            final totalSamples = numberOfFrames * samplesPerFrame;
+            final durationInSeconds = totalSamples / sampleRate;
+            final durationInMicroseconds = (durationInSeconds * 1000000).toInt();
+
+            duration = Duration(microseconds: durationInMicroseconds);
+          }
+        }
+      } else if (bitrate != null && bitrate > 0) {
+        final id3v1Size = hasID3v1Tag(reader) ? 128 : 0;
+        final fileSizeWithoutMetadata =
+            reader.lengthSync() - frame.offset - id3v1Size;
+        final durationInSeconds =
+            (8 * fileSizeWithoutMetadata) / bitrate;
+        final durationInMicroseconds = (durationInSeconds * 1000000).toInt();
+
+        duration = Duration(microseconds: durationInMicroseconds);
+      }
+
+      reader.setPositionSync(initialPosition);
+      return (duration: duration, bitrate: bitrate, sampleRate: sampleRate);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Returns the total byte size of the ID3v2 tag, including its 10-byte
   /// header. The size stored in ID3v2 is sync-safe and excludes that header.
   int _getID3v2TotalSize(RandomAccessFile reader) {
